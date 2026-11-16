@@ -62,6 +62,20 @@ export async function createOrder(input: CreateOrderInput): Promise<
   const cookieStore = await cookies();
   const shiftId = parseInt(cookieStore.get('shiftId')?.value || '0', 10);
 
+  // Servers may only open bills on their own tables; unassigned tables are shared.
+  if (auth.session.role === 'WAITER' && input.type === 'DINE_IN' && input.tableNumber) {
+    const tableNumber = Number(input.tableNumber);
+    if (Number.isInteger(tableNumber)) {
+      const table = await prisma.diningTable.findUnique({
+        where: { number: tableNumber },
+        select: { assignedStaffId: true },
+      });
+      if (table?.assignedStaffId && table.assignedStaffId !== auth.session.staffId) {
+        return failure('TABLE_NOT_YOURS');
+      }
+    }
+  }
+
   const result = await createOrderRecord(
     { ...input, shiftId },
     { staffId: auth.session.staffId, role: auth.session.role },
@@ -174,6 +188,8 @@ export async function getReadyOrders() {
       where: {
         // "READY" = kitchen finished, waiting to be picked up / served.
         status: READY_FOR_PICKUP,
+        // Servers only see their own pickups; the cashier and managers see all.
+        ...(auth.session.role === 'WAITER' ? { staffId: auth.session.staffId } : {}),
       },
       include: {
         items: true,

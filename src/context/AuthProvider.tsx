@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { logoutAction, getCurrentStaff } from '@/features/auth/actions';
+import { useCartStore } from '@/features/orders/store';
 
 interface StaffInfo {
   id: number;
@@ -96,6 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setShiftState(null);
     sessionStorage.removeItem('warka_staff');
     sessionStorage.removeItem('warka_shift');
+    // A shared till must never hand one person's cart to the next.
+    useCartStore.getState().clearCart();
     // Clear the session cookies server-side — they are httpOnly, so they cannot
     // be removed from JavaScript.
     void logoutAction();

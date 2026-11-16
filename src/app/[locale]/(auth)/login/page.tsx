@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { useAuth } from '@/context/AuthProvider';
 import { verifyPin, getActiveShift, startShift } from '@/features/auth/actions';
+import { useCartStore } from '@/features/orders/store';
 import PinPad from '@/features/auth/components/PinPad';
 import ShiftStartModal from '@/features/auth/components/ShiftStartModal';
 import LanguageToggle from '@/components/shared/LanguageToggle';
@@ -26,6 +27,8 @@ export default function LoginPage() {
 
     if (result.success && result.staff) {
       setStaff(result.staff);
+      // A shared phone must never carry one server's cart into the next session.
+      useCartStore.getState().clearCart();
 
       // Route based on role
       if (result.staff.role === 'KITCHEN') {
@@ -43,17 +46,11 @@ export default function LoginPage() {
           setShowShiftModal(true);
         }
       } else if (result.staff.role === 'WAITER') {
-        // Waiters don't have shifts (or they do, but without cash).
-        // For now, let's just create a 0-cash shift silently if they need one, or just route them.
-        // Orders require a shiftId, so let's start a zero-cash shift for them automatically.
-        const existingShift = await getActiveShift(result.staff.id);
-        if (existingShift) {
-          setShift(existingShift);
-        } else {
-          const shiftRes = await startShift(result.staff.id, 0);
-          if (shiftRes.success && shiftRes.shift) {
-            setShift(shiftRes.shift);
-          }
+        // Orders require a shiftId cookie, so every waiter login must run
+        // startShift — it resumes the open shift when one exists and sets the cookie.
+        const shiftRes = await startShift(result.staff.id, 0);
+        if (shiftRes.success && shiftRes.shift) {
+          setShift(shiftRes.shift);
         }
         router.push('/waiter');
       } else {

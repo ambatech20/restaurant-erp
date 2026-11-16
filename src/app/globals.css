@@ -1353,7 +1353,6 @@ a:hover {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: 100%;
   animation: scaleIn var(--transition-slow) ease;
   transition: border-color var(--transition);
 }
@@ -2327,9 +2326,11 @@ a:hover {
   }
 
   /* ---------- Kitchen display ---------- */
+  /* Phones scroll the whole page: a fixed-height board clips ticket bodies on
+     iOS Safari, hiding dishes and the action button. */
   .kds-page {
-    height: calc(100vh - var(--header-height)) !important;
-    height: calc(100dvh - var(--header-height)) !important;
+    height: auto !important;
+    min-height: calc(100dvh - var(--header-height));
   }
 
   .kds-header {
@@ -2340,6 +2341,31 @@ a:hover {
 
   .kds-header h1 {
     font-size: 1rem !important;
+  }
+
+  .kds-layout {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .kds-ticket {
+    height: auto;
+    max-height: none;
+  }
+
+  .kds-ticket-body {
+    flex: 0 0 auto;
+    min-height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .kds-ticket-footer {
+    flex: 0 0 auto;
+  }
+
+  .kds-item {
+    padding: var(--space-3) var(--space-2);
   }
 
   /* ---------- PIN login ---------- */
@@ -2361,9 +2387,5 @@ a:hover {
   .pin-key {
     width: 72px;
     height: 72px;
-  }
-
-  .kds-layout {
-    grid-template-columns: 1fr;
   }
 }

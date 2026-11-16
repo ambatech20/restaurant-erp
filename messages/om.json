@@ -107,6 +107,7 @@
     "NO_SHIFT": "Ajaja fudhachuu dura yeroo hojii jalqabi.",
     "INVALID_TYPE": "Gosni ajajaa kun hin jiru.",
     "TABLE_REQUIRED": "Herrega kanaaf minjaala filadhu.",
+    "TABLE_NOT_YOURS": "Minjaalli kun tajaajila biraati.",
     "EMPTY_ITEMS": "Yoo xiqqaate mi'a tokko dabali.",
     "INVALID_QUANTITY": "Baay'inni zeeroo caalaa ta'uu qaba.",
     "PRICE_OVERRIDE": "Gatii jijjiiruu kan danda'u bulchaa qofa.",
@@ -326,6 +327,10 @@
     "nameOm": "Maqaa (Afaan Oromoo)",
     "role": "Gahee",
     "pin": "Koodii PIN",
+    "pinKeep": "PIN ammaa qabachuuf duwwaa dhiisi",
+    "pinInvalid": "PIN dijiitii 4 hanga 8 ta'uu qaba",
+    "bankName": "Maqaa baankii",
+    "bankAccount": "Herrega baankii",
     "phone": "Bilbila",
     "salary": "Mindaa",
     "salaryAmount": "Mindaa ji'aa (Birrii)",
@@ -349,6 +354,9 @@
     "monthlyPayroll": "Mindaa ji'aa",
     "lastPayment": "Kaffaltii dhumaa",
     "noEmployees": "Hojjettoonni amma hin dabalamne",
+    "tables": "Minjaallii",
+    "table": "Minjaala",
+    "unassigned": "Kan hin ramadamne",
     "confirmDelete": "Hojjetaa kana hojii irraa baasuu ni barbaadda?"
   },
   "inventory": {

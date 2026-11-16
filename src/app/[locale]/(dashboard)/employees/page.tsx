@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { getEmployees, createEmployee, updateEmployee, deleteEmployee, paySalary, getSalaryHistory } from '@/features/employees/actions';
+import { getTableAssignments, assignTable, type TableAssignment } from '@/features/tables/actions';
 import { formatPrice, getLocaleName } from '@/lib/utils';
 import { ROLE_LABELS } from '@/lib/utils';
 import { roundMoney } from '@/lib/money';
@@ -29,19 +30,38 @@ export default function EmployeesPage() {
   const locale = useLocale();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [salaryHistory, setSalaryHistory] = useState<SalaryRecord[]>([]);
-  const [tab, setTab] = useState<'list' | 'payroll'>('list');
+  const [tableAssignments, setTableAssignments] = useState<TableAssignment[]>([]);
+  const [tab, setTab] = useState<'list' | 'payroll' | 'tables'>('list');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPayForm, setShowPayForm] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', nameAm: '', nameOm: '', role: 'CASHIER', phone: '', salary: '', bankName: '', bankAccount: '', pin: '' });
   const [form, setForm] = useState({ name: '', nameAm: '', nameOm: '', pin: '', role: 'CASHIER', phone: '', salary: '', bankName: '', bankAccount: '' });
   const [payForm, setPayForm] = useState({ bonus: '0', deductions: '0', absentDays: '0', note: '' });
 
   const loadData = async () => {
-    const [empRes, salRes] = await Promise.all([getEmployees(), getSalaryHistory()]);
+    const [empRes, salRes, tableRes] = await Promise.all([getEmployees(), getSalaryHistory(), getTableAssignments()]);
     if (empRes.success) setEmployees(empRes.employees as Employee[]);
     if (salRes.success) setSalaryHistory(salRes.payments as SalaryRecord[]);
+    if (tableRes.success) setTableAssignments(tableRes.tables);
   };
 
   useAsyncEffect(loadData, []);
+
+  const handleAssignTable = async (number: number, staffId: number | null) => {
+    const res = await assignTable(number, staffId);
+    if (!res.success) {
+      alert(res.error || 'Failed to assign table');
+      return;
+    }
+    setTableAssignments((prev) =>
+      prev.map((row) =>
+        row.number === number
+          ? { ...row, assignedStaffId: staffId, staffName: employees.find((e) => e.id === staffId)?.name ?? null }
+          : row
+      )
+    );
+  };
 
   const handleAdd = async () => {
     if (!form.name) return;
@@ -60,6 +80,47 @@ export default function EmployeesPage() {
 
   const handleToggleActive = async (emp: Employee) => {
     await updateEmployee(emp.id, { isActive: !emp.isActive });
+    loadData();
+  };
+
+  const startEdit = (emp: Employee) => {
+    setShowPayForm(null);
+    setEditingId(emp.id);
+    setEditForm({
+      name: emp.name,
+      nameAm: emp.nameAm ?? '',
+      nameOm: emp.nameOm ?? '',
+      role: emp.role,
+      phone: emp.phone ?? '',
+      salary: String(emp.salary ?? 0),
+      bankName: emp.bankName ?? '',
+      bankAccount: emp.bankAccount ?? '',
+      pin: '',
+    });
+  };
+
+  const handleSaveEdit = async (emp: Employee) => {
+    if (!editForm.name) return;
+    if (editForm.pin && !/^\d{4,8}$/.test(editForm.pin)) {
+      alert(t('pinInvalid'));
+      return;
+    }
+    const res = await updateEmployee(emp.id, {
+      name: editForm.name,
+      nameAm: editForm.nameAm,
+      nameOm: editForm.nameOm,
+      role: editForm.role,
+      phone: editForm.phone,
+      salary: parseFloat(editForm.salary) || 0,
+      bankName: editForm.bankName,
+      bankAccount: editForm.bankAccount,
+      ...(editForm.pin ? { pin: editForm.pin } : {}),
+    });
+    if (!res.success) {
+      alert(res.error || 'Failed to update employee');
+      return;
+    }
+    setEditingId(null);
     loadData();
   };
 
@@ -88,6 +149,7 @@ export default function EmployeesPage() {
   };
 
   const roles = ['ADMIN', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER'];
+  const waiters = employees.filter((emp) => emp.role === 'WAITER');
 
   return (
     <div>
@@ -99,6 +161,9 @@ export default function EmployeesPage() {
           </button>
           <button className={`btn ${tab === 'payroll' ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setTab('payroll')}>
             <Icon name="coins" size={15} /> {t('payroll')}
+          </button>
+          <button className={`btn ${tab === 'tables' ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setTab('tables')}>
+            <Icon name="menu" size={15} /> {t('tables')}
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddForm(!showAddForm)}>+ {t('addEmployee')}</button>
         </div>
@@ -176,6 +241,9 @@ export default function EmployeesPage() {
 
                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                   <button className="btn btn-primary btn-sm" onClick={() => setShowPayForm(emp.id)}><Icon name="coins" size={15} /> {t('paySalary')}</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => (editingId === emp.id ? setEditingId(null) : startEdit(emp))}>
+                    <Icon name="edit" size={15} /> {tc('edit')}
+                  </button>
                   <button className={`btn btn-sm ${emp.isActive ? 'btn-secondary' : 'btn-primary'}`} onClick={() => handleToggleActive(emp)}>
                     {emp.isActive ? t('inactive') : t('active')}
                   </button>
@@ -183,6 +251,41 @@ export default function EmployeesPage() {
                     <Icon name="trash" size={15} />
                   </button>
                 </div>
+
+                {/* Edit Employee Form */}
+                {editingId === emp.id && (
+                  <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--bg-input)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                    <h4 style={{ marginBottom: 'var(--space-3)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon name="edit" size={15} /> {t('editEmployee')}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--space-3)' }}>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('name')} *</label>
+                        <input className="input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('nameAm')}</label>
+                        <input className="input" value={editForm.nameAm} onChange={(e) => setEditForm({ ...editForm, nameAm: e.target.value })} placeholder="አማርኛ ስም" /></div>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('nameOm')}</label>
+                        <input className="input" value={editForm.nameOm} onChange={(e) => setEditForm({ ...editForm, nameOm: e.target.value })} placeholder="Maqaa Afaan Oromoo" /></div>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('role')}</label>
+                        <select className="input" value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>
+                          {roles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]?.en || r}</option>)}
+                        </select></div>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('phone')}</label>
+                        <input className="input" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} /></div>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('salaryAmount')}</label>
+                        <input className="input" type="number" value={editForm.salary} onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })} /></div>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}><Icon name="bank" size={13} /> {t('bankName')}</label>
+                        <input className="input" value={editForm.bankName} onChange={(e) => setEditForm({ ...editForm, bankName: e.target.value })} placeholder="e.g. CBE, Awash" /></div>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}><Icon name="hash" size={13} /> {t('bankAccount')}</label>
+                        <input className="input" value={editForm.bankAccount} onChange={(e) => setEditForm({ ...editForm, bankAccount: e.target.value })} placeholder="Account number" /></div>
+                      <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('pin')}</label>
+                        <input className="input" type="password" inputMode="numeric" value={editForm.pin} onChange={(e) => setEditForm({ ...editForm, pin: e.target.value })} maxLength={8} placeholder={t('pinKeep')} /></div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                      <button className="btn btn-primary btn-sm" onClick={() => handleSaveEdit(emp)}><Icon name="check" size={15} /> {tc('save')}</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEditingId(null)}>{tc('cancel')}</button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Pay Salary Form */}
                 {showPayForm === emp.id && (() => {
@@ -311,6 +414,35 @@ export default function EmployeesPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+      {tab === 'tables' && (
+        <div className="glass-card-static panel">
+          <div className="panel-header">
+            <h3 className="section-title">{t('tables')}</h3>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-3)' }}>
+            {tableAssignments.map((row) => (
+              <div key={row.number} style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)' }}>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '6px' }}>
+                  {t('table')} {row.number}
+                </div>
+                <select
+                  className="input"
+                  value={row.assignedStaffId ?? ''}
+                  onChange={(e) => handleAssignTable(row.number, e.target.value ? Number(e.target.value) : null)}
+                  aria-label={`${t('table')} ${row.number}`}
+                >
+                  <option value="">{t('unassigned')}</option>
+                  {waiters.map((w) => (
+                    <option key={w.id} value={w.id} disabled={!w.isActive}>
+                      {getLocaleName(w.name, w.nameAm, locale, w.nameOm)}{w.isActive ? '' : ` (${t('inactive')})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

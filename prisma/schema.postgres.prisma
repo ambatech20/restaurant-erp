@@ -37,6 +37,7 @@ model Staff {
   auditLogs      AuditLog[]
   salaryPayments SalaryPayment[]
   stockAssignments StockAssignment[] @relation("StockAssignmentBy")
+  assignedTables DiningTable[]     @relation("TableAssignment")
 
   @@index([role])
   @@index([isActive])
@@ -69,6 +70,17 @@ model Shift {
   @@index([staffId])
   @@index([status])
   @@index([startTime])
+}
+
+model DiningTable {
+  id              Int       @id @default(autoincrement())
+  number          Int       @unique
+  assignedStaffId Int?
+  assignedStaff   Staff?    @relation("TableAssignment", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([assignedStaffId])
 }
 
 model StockAssignment {

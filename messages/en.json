@@ -107,6 +107,7 @@
     "NO_SHIFT": "Start a shift before taking orders.",
     "INVALID_TYPE": "That order type is not available.",
     "TABLE_REQUIRED": "Select a table for this bill.",
+    "TABLE_NOT_YOURS": "That table belongs to another server.",
     "EMPTY_ITEMS": "Add at least one item.",
     "INVALID_QUANTITY": "Quantities must be greater than zero.",
     "PRICE_OVERRIDE": "Only a manager can change a price.",
@@ -326,6 +327,10 @@
     "nameAm": "Name (Amharic)",
     "role": "Role",
     "pin": "PIN Code",
+    "pinKeep": "Leave blank to keep current PIN",
+    "pinInvalid": "PIN must be 4 to 8 digits",
+    "bankName": "Bank Name",
+    "bankAccount": "Bank Account",
     "phone": "Phone",
     "salary": "Salary",
     "salaryAmount": "Monthly Salary (ETB)",
@@ -349,6 +354,9 @@
     "monthlyPayroll": "Monthly Payroll",
     "lastPayment": "Last Payment",
     "noEmployees": "No employees added yet",
+    "tables": "Tables",
+    "table": "Table",
+    "unassigned": "Unassigned",
     "confirmDelete": "Are you sure you want to deactivate this employee?"
   },
   "inventory": {

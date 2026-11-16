@@ -21,6 +21,7 @@ import { formatPrice, getLocaleName } from '@/lib/utils';
 import Icon from '@/components/shared/Icon';
 import type { OrderView } from '@/features/orders/types';
 import { useAsyncEffect } from '@/hooks/useAsyncEffect';
+import { getMyTables } from '@/features/tables/actions';
 
 interface Category {
   id: number;
@@ -57,6 +58,7 @@ export default function WaiterPage() {
   const [openBills, setOpenBills] = useState<OpenBillOption[]>([]);
   const [loadingOpenBills, setLoadingOpenBills] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [tables, setTables] = useState<string[]>([]);
 
   const items = useCartStore((s) => s.items);
   const orderType = useCartStore((s) => s.orderType);
@@ -113,6 +115,12 @@ export default function WaiterPage() {
     }
     loadData();
     fetchReadyOrders();
+  }, []);
+
+  // Tables this server may open bills on — their own plus the unassigned ones.
+  useAsyncEffect(async () => {
+    const result = await getMyTables();
+    if (result.success) setTables(result.tables);
   }, []);
 
   useSocketEvent('order:new', () => {
@@ -315,6 +323,7 @@ export default function WaiterPage() {
           onPay={handleSendToKitchen}
           loading={loading}
           isWaiter={true}
+          tables={tables}
           openBills={openBills}
           openBillsLoading={loadingOpenBills}
           sheetOpen={sheetOpen}

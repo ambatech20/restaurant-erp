@@ -73,12 +73,18 @@ export async function updateEmployee(
     phone?: string;
     salary?: number;
     isActive?: boolean;
+    bankName?: string;
+    bankAccount?: string;
     pin?: string;
   }
 ) {
   try {
     const auth = await authorize(MANAGEMENT_ROLES);
     if (!auth.ok) return { success: false, error: auth.error };
+
+    if (data.pin !== undefined && !/^\d{4,8}$/.test(data.pin)) {
+      return { success: false, error: 'PIN must be 4 to 8 digits' };
+    }
 
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
@@ -88,6 +94,8 @@ export async function updateEmployee(
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.salary !== undefined) updateData.salary = data.salary;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.bankName !== undefined) updateData.bankName = data.bankName;
+    if (data.bankAccount !== undefined) updateData.bankAccount = data.bankAccount;
     if (data.pin) updateData.pinHash = await bcrypt.hash(data.pin, 10);
 
     const employee = await prisma.staff.update({ where: { id }, data: updateData });

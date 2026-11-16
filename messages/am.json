@@ -107,6 +107,7 @@
     "NO_SHIFT": "ትዕዛዝ ከመውሰድዎ በፊት ፈረቃ ይጀምሩ።",
     "INVALID_TYPE": "ይህ የትዕዛዝ ዓይነት አይገኝም።",
     "TABLE_REQUIRED": "ለዚህ ሂሳብ ጠረጴዛ ይምረጡ።",
+    "TABLE_NOT_YOURS": "ይህ ጠረጴዛ ለሌላ አስተናጋጅ ነው።",
     "EMPTY_ITEMS": "ቢያንስ አንድ እቃ ይጨምሩ።",
     "INVALID_QUANTITY": "ብዛት ከዜሮ በላይ መሆን አለበት።",
     "PRICE_OVERRIDE": "ዋጋ መቀየር የሚችለው ሥራ አስኪያጅ ብቻ ነው።",
@@ -326,6 +327,10 @@
     "nameAm": "ስም (አማርኛ)",
     "role": "ሚና",
     "pin": "ፒን ኮድ",
+    "pinKeep": "የአሁኑን ፒን ለማስቀመጥ ባዶ ይተዉት",
+    "pinInvalid": "ፒን ከ4 እስከ 8 አሃዝ መሆን አለበት",
+    "bankName": "የባንክ ስም",
+    "bankAccount": "የባንክ አካውንት",
     "phone": "ስልክ",
     "salary": "ደመወዝ",
     "salaryAmount": "ወርሃዊ ደመወዝ (ብር)",
@@ -349,6 +354,9 @@
     "monthlyPayroll": "ወርሃዊ ደመወዝ",
     "lastPayment": "የመጨረሻ ክፍያ",
     "noEmployees": "ገና ምንም ሰራተኛ አልተመዘገበም",
+    "tables": "ጠረጴዛዎች",
+    "table": "ጠረጴዛ",
+    "unassigned": "ያልተመደበ",
     "confirmDelete": "ይህን ሰራተኛ ማቦዘን ይፈልጋሉ?"
   },
   "inventory": {

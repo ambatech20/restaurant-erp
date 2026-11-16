@@ -50,6 +50,7 @@ export type BillErrorCode =
   | 'NO_SHIFT'
   | 'INVALID_TYPE'
   | 'TABLE_REQUIRED'
+  | 'TABLE_NOT_YOURS'
   | 'EMPTY_ITEMS'
   | 'INVALID_QUANTITY'
   | 'PRICE_OVERRIDE'
@@ -74,6 +75,7 @@ export const BILL_ERROR_MESSAGES: Record<BillErrorCode, string> = {
   NO_SHIFT: 'No active shift',
   INVALID_TYPE: 'Invalid order type',
   TABLE_REQUIRED: 'Select a table for this bill',
+  TABLE_NOT_YOURS: 'That table belongs to another server',
   EMPTY_ITEMS: 'Order must contain at least one item',
   INVALID_QUANTITY: 'Item quantities must be greater than zero',
   PRICE_OVERRIDE: 'Not authorized to override prices',

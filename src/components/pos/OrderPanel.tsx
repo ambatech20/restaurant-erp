@@ -6,12 +6,14 @@ import { getLocaleName, formatPrice } from '@/lib/utils';
 import { shortOrderNumber, type OpenBillOption } from '@/features/orders/openBills';
 import OpenBillPicker from '@/components/pos/OpenBillPicker';
 import Icon from '@/components/shared/Icon';
+import { allTableNumbers } from '@/lib/tables';
 
 interface OrderPanelProps {
   onPlaceOrder: () => void;
   onPay?: () => void;
   loading?: boolean;
   isWaiter?: boolean;
+  tables?: string[];
   openBills?: OpenBillOption[];
   openBillsLoading?: boolean;
   onSelectOpenBill?: (bill: OpenBillOption | null) => void;
@@ -23,6 +25,7 @@ export default function OrderPanel({
   onPlaceOrder,
   loading,
   isWaiter,
+  tables = allTableNumbers(),
   openBills = [],
   openBillsLoading = false,
   onSelectOpenBill,
@@ -43,8 +46,6 @@ export default function OrderPanel({
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
-
-  const tables = Array.from({ length: 20 }, (_, i) => String(i + 1));
 
   return (
     <div className={`pos-order-panel ${sheetOpen ? 'open' : ''}`}>

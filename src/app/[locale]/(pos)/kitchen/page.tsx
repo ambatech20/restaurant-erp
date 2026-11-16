@@ -49,7 +49,11 @@ export default function KitchenPage() {
   const loadOrders = useCallback(async () => {
     const result = await getActiveOrders();
     if (result.success && result.orders) {
-      setOrders(result.orders as Order[]);
+      // The kitchen queue is only what still needs cooking — READY tickets
+      // belong to the waiters' "Ready to Serve" list and must not reappear.
+      setOrders(
+        (result.orders as Order[]).filter((o) => o.status === 'PENDING' || o.status === 'PREPARING'),
+      );
     }
   }, []);
 
@@ -293,17 +297,6 @@ export default function KitchenPage() {
                         <Icon name="hourglass" size={16} /> {order.items.filter((i) => i.status === 'READY').length}/{order.items.length} {t('ready')}
                       </div>
                     )
-                  )}
-
-                  {order.status === 'READY' && (
-                    <button
-                      className="btn btn-lg w-full"
-                      style={{ background: 'var(--success)', color: 'white' }}
-                      disabled={isLoading}
-                      onClick={() => handleServeOrder(order.id)}
-                    >
-                      <Icon name="bell" size={18} /> {t('markReady')}
-                    </button>
                   )}
                 </div>
               </div>
