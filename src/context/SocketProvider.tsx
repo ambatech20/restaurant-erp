@@ -20,16 +20,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const s = getSocket();
+    if (!s) return;
 
-    function onConnect() {
+    const onConnect = () => {
       setIsConnected(true);
       console.log('[Socket] Connected:', s.id);
-    }
+    };
 
-    function onDisconnect() {
+    const onDisconnect = () => {
       setIsConnected(false);
       console.log('[Socket] Disconnected');
-    }
+    };
 
     s.on('connect', onConnect);
     s.on('disconnect', onDisconnect);

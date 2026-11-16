@@ -108,7 +108,7 @@ function announceReplay(entry: QueueEntry): void {
   void import('@/lib/socket')
     .then(({ getSocket }) => {
       const socket = getSocket();
-      if (!socket.connected) return;
+      if (!socket || !socket.connected) return;
       if (entry.kind === 'create') {
         const payload = entry.payload as OfflineCreatePayload;
         socket.emit('order:new', {
@@ -201,7 +201,7 @@ export async function submitOfflineOrder(
               (fullPayload as OfflineAppendPayload).items,
               (fullPayload as OfflineAppendPayload).clientKey
             );
-      if (res.success && res.order) {
+      if (res.success) {
         drainQueue();
         return { status: 'sent', order: res.order as { id: number } & Record<string, unknown> };
       }

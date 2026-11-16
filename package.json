@@ -15,7 +15,7 @@
     "db:reset": "npx prisma db push --force-reset && npx tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@eliabay100-del/pcheck-erp-sdk": "file:../../pcheck/packages/pcheck-erp-sdk",
+    "@eliabay100-del/pcheck-erp-sdk": "file:vendor/pcheck-erp-sdk",
     "@prisma/client": "^6.9.0",
     "bcryptjs": "^2.4.3",
     "html2canvas": "^1.4.1",

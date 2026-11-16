@@ -12,6 +12,7 @@ interface OrderItem {
   id: number;
   itemNameEn: string;
   itemNameAm: string | null;
+  itemNameOm: string | null;
   quantity: number;
   status: string;
   note: string | null;
@@ -26,7 +27,7 @@ interface Order {
   note: string | null;
   createdAt: string;
   items: OrderItem[];
-  staff: { name: string; nameAm: string | null };
+  staff: { name: string; nameAm: string | null; nameOm?: string | null };
 }
 
 export default function KitchenPage() {
@@ -145,9 +146,9 @@ export default function KitchenPage() {
   const preparingCount = orders.filter((o) => o.status === 'PREPARING').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height) - var(--footer-height))' }}>
+    <div className="kds-page" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height) - var(--footer-height))' }}>
       {/* KDS Header */}
-      <div style={{
+      <div className="kds-header" style={{
         padding: 'var(--space-3) var(--space-5)', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
@@ -204,7 +205,7 @@ export default function KitchenPage() {
 
                 {/* Waiter name */}
                 <div style={{ padding: '0 var(--space-3) var(--space-1)', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Icon name="user" size={13} /> {getLocaleName(order.staff.name, order.staff.nameAm, locale)}
+                  <Icon name="user" size={13} /> {getLocaleName(order.staff.name, order.staff.nameAm, locale, order.staff.nameOm)}
                 </div>
 
                 {/* Item-level checklist */}
@@ -244,7 +245,7 @@ export default function KitchenPage() {
 
                         <div style={{ flex: 1 }}>
                           <span className="kds-item-name" style={{ textDecoration: isItemReady ? 'line-through' : 'none' }}>
-                            {getLocaleName(item.itemNameEn, item.itemNameAm, locale)}
+                            {getLocaleName(item.itemNameEn, item.itemNameAm, locale, item.itemNameOm)}
                           </span>
                           {item.note && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-gold)', marginTop: '2px' }}>

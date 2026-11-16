@@ -3,6 +3,9 @@ import path from 'path';
 
 const BACKUP_DIR = path.join(process.cwd(), 'backups');
 
+/** The hosted deployment has no SQLite file to copy and a read-only filesystem. */
+const HOSTED = Boolean(process.env.VERCEL);
+
 export function getDatabasePath(): string {
   const url = process.env.DATABASE_URL ?? 'file:./dev.db';
   let file = url;
@@ -18,6 +21,7 @@ export function getDatabasePath(): string {
 }
 
 export function ensureBackupDir(): string {
+  if (HOSTED) throw new Error('File backups are not available on the hosted deployment');
   if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
   return BACKUP_DIR;
 }
@@ -35,8 +39,7 @@ function safeName(name: string): string | null {
 }
 
 export function createBackup(label: 'daily' | 'weekly' | 'monthly'): BackupInfo {
-  ensureBackupDir();
-  const dbPath = getDatabasePath();
+  ensureBackupDir();  const dbPath = getDatabasePath();
   if (!fs.existsSync(/*turbopackIgnore: true*/ dbPath)) throw new Error('Database file not found');
   const now = new Date();
   const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
@@ -48,6 +51,7 @@ export function createBackup(label: 'daily' | 'weekly' | 'monthly'): BackupInfo 
 }
 
 export function listBackups(): BackupInfo[] {
+  if (HOSTED) return [];
   ensureBackupDir();
   return fs
     .readdirSync(BACKUP_DIR)
@@ -72,6 +76,7 @@ export function deleteBackup(filename: string): boolean {
 }
 
 export function getBackupPath(filename: string): string | null {
+  if (HOSTED) return null;
   const safe = safeName(filename);
   if (!safe) return null;
   const full = path.join(BACKUP_DIR, safe);

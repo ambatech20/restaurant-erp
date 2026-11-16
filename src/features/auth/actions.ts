@@ -66,6 +66,7 @@ export async function verifyPin(pin: string) {
             id: staff.id,
             name: staff.name,
             nameAm: staff.nameAm,
+            nameOm: staff.nameOm,
             role: staff.role,
           },
         };
@@ -363,12 +364,12 @@ export async function getCurrentStaff() {
 
     const staff = await prisma.staff.findUnique({
       where: { id: staffId },
-      select: { id: true, name: true, nameAm: true, role: true, isActive: true },
+      select: { id: true, name: true, nameAm: true, nameOm: true, role: true, isActive: true },
     });
 
     if (!staff || !staff.isActive) return null;
 
-    return { id: staff.id, name: staff.name, nameAm: staff.nameAm, role: staff.role };
+    return { id: staff.id, name: staff.name, nameAm: staff.nameAm, nameOm: staff.nameOm, role: staff.role };
   } catch {
     return null;
   }

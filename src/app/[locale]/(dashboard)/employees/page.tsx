@@ -10,7 +10,7 @@ import { useAsyncEffect } from '@/hooks/useAsyncEffect';
 import Icon from '@/components/shared/Icon';
 
 interface Employee {
-  id: number; name: string; nameAm: string | null; role: string; isActive: boolean;
+  id: number; name: string; nameAm: string | null; nameOm: string | null; role: string; isActive: boolean;
   phone: string | null; salary: number; bankName: string | null; bankAccount: string | null;
   startDate: string; createdAt: string;
   salaryPayments: { id: number; netPay: number; month: string; paidAt: string | null }[];
@@ -20,7 +20,7 @@ interface Employee {
 interface SalaryRecord {
   id: number; staffId: number; amount: number; bonus: number; deductions: number;
   netPay: number; month: string; status: string; paidAt: string | null;
-  staff: { name: string; nameAm: string | null; role: string };
+  staff: { name: string; nameAm: string | null; nameOm?: string | null; role: string };
 }
 
 export default function EmployeesPage() {
@@ -32,7 +32,7 @@ export default function EmployeesPage() {
   const [tab, setTab] = useState<'list' | 'payroll'>('list');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPayForm, setShowPayForm] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: '', nameAm: '', pin: '', role: 'CASHIER', phone: '', salary: '', bankName: '', bankAccount: '' });
+  const [form, setForm] = useState({ name: '', nameAm: '', nameOm: '', pin: '', role: 'CASHIER', phone: '', salary: '', bankName: '', bankAccount: '' });
   const [payForm, setPayForm] = useState({ bonus: '0', deductions: '0', absentDays: '0', note: '' });
 
   const loadData = async () => {
@@ -48,12 +48,12 @@ export default function EmployeesPage() {
     // PIN is required for all roles except WAITER
     if (form.role !== 'WAITER' && !form.pin) return;
     await createEmployee({
-      name: form.name, nameAm: form.nameAm || undefined,
+      name: form.name, nameAm: form.nameAm || undefined, nameOm: form.nameOm || undefined,
       pin: form.pin || '0000', // WAITER gets a dummy PIN they'll never use
       role: form.role, phone: form.phone || undefined, salary: parseFloat(form.salary) || 0,
       bankName: form.bankName || undefined, bankAccount: form.bankAccount || undefined,
     });
-    setForm({ name: '', nameAm: '', pin: '', role: 'CASHIER', phone: '', salary: '', bankName: '', bankAccount: '' });
+    setForm({ name: '', nameAm: '', nameOm: '', pin: '', role: 'CASHIER', phone: '', salary: '', bankName: '', bankAccount: '' });
     setShowAddForm(false);
     loadData();
   };
@@ -93,7 +93,7 @@ export default function EmployeesPage() {
     <div>
       <div className="page-header" style={{ marginBottom: 'var(--space-5)' }}>
         <div className="page-title">{t('title')}</div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           <button className={`btn ${tab === 'list' ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setTab('list')}>
             <Icon name="employees" size={15} /> {t('totalEmployees')}
           </button>
@@ -113,6 +113,8 @@ export default function EmployeesPage() {
               <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('nameAm')}</label>
               <input className="input" value={form.nameAm} onChange={(e) => setForm({ ...form, nameAm: e.target.value })} placeholder="አማርኛ ስም" /></div>
+            <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('nameOm')}</label>
+              <input className="input" value={form.nameOm} onChange={(e) => setForm({ ...form, nameOm: e.target.value })} placeholder="Maqaa Afaan Oromoo" /></div>
             {form.role !== 'WAITER' && (
               <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('pin')} *</label>
                 <input className="input" type="password" value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value })} maxLength={4} /></div>
@@ -140,13 +142,13 @@ export default function EmployeesPage() {
       {tab === 'list' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
           {employees.map((emp) => {
-            const roleLabel = locale === 'am' ? ROLE_LABELS[emp.role]?.am : ROLE_LABELS[emp.role]?.en;
+            const roleLabel = locale === 'am' ? ROLE_LABELS[emp.role]?.am : locale === 'om' ? ROLE_LABELS[emp.role]?.om : ROLE_LABELS[emp.role]?.en;
             const lastPay = emp.salaryPayments[0];
             return (
               <div key={emp.id} className="glass-card-static panel" style={{ opacity: emp.isActive ? 1 : 0.5 }}>
                 <div className="flex-between" style={{ marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ fontSize: '1rem' }}>{getLocaleName(emp.name, emp.nameAm, locale)}</h3>
+                    <h3 style={{ fontSize: '1rem' }}>{getLocaleName(emp.name, emp.nameAm, locale, emp.nameOm)}</h3>
                     <span className={`badge ${emp.role === 'ADMIN' ? 'badge-danger' : emp.role === 'MANAGER' ? 'badge-preparing' : emp.role === 'CASHIER' ? 'badge-pending' : emp.role === 'WAITER' ? 'badge-served' : 'badge-ready'}`}>
                       {roleLabel || emp.role}
                     </span>
@@ -274,7 +276,7 @@ export default function EmployeesPage() {
       )}
 
       {tab === 'payroll' && (
-        <div className="glass-card-static" style={{ overflow: 'hidden' }}>
+        <div className="glass-card-static table-scroll">
           <div className="panel-header">
             <h3 className="section-title">{t('paymentHistory')}</h3>
           </div>
@@ -294,7 +296,7 @@ export default function EmployeesPage() {
             <tbody>
               {salaryHistory.map((rec) => (
                 <tr key={rec.id}>
-                  <td style={{ fontWeight: 600 }}>{getLocaleName(rec.staff.name, rec.staff.nameAm, locale)}</td>
+                  <td style={{ fontWeight: 600 }}>{getLocaleName(rec.staff.name, rec.staff.nameAm, locale, rec.staff.nameOm)}</td>
                   <td><span className="badge">{rec.staff.role}</span></td>
                   <td>{rec.month}</td>
                   <td>{formatPrice(rec.amount, locale)}</td>

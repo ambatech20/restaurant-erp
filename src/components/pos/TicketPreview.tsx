@@ -2,8 +2,9 @@
 
 import { useLocale } from 'next-intl';
 import { useRef } from 'react';
+import { getLocaleName } from '@/lib/utils';
 
-interface TicketItem { quantity: number; itemNameEn: string; itemNameAm?: string | null; note?: string | null; }
+interface TicketItem { quantity: number; itemNameEn: string; itemNameAm?: string | null; itemNameOm?: string | null; note?: string | null; }
 interface TicketData { orderNumber: string; tableNumber?: string | null; channel: string; createdAt: string; items: TicketItem[]; }
 
 export default function TicketPreview({ ticket }: { ticket: TicketData }) {
@@ -40,7 +41,7 @@ export default function TicketPreview({ ticket }: { ticket: TicketData }) {
             {ticket.items.map((it, i) => (
               <tr key={i}>
                 <td style={{ width: 30 }}>{it.quantity}x</td>
-                <td>{locale === 'am' ? (it.itemNameAm || it.itemNameEn) : it.itemNameEn}{it.note ? ` (${it.note})` : ''}</td>
+                <td>{getLocaleName(it.itemNameEn, it.itemNameAm, locale, it.itemNameOm)}{it.note ? ` (${it.note})` : ''}</td>
               </tr>
             ))}
           </tbody>

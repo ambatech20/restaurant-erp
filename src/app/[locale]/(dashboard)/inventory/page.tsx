@@ -9,7 +9,7 @@ import Icon from '@/components/shared/Icon';
 import { useAsyncEffect } from '@/hooks/useAsyncEffect';
 
 interface InventoryItemData {
-  id: number; nameEn: string; nameAm: string | null; category: string; unit: string;
+  id: number; nameEn: string; nameAm: string | null; nameOm: string | null; category: string; unit: string;
   currentStock: number; unitCost: number; reorderLevel: number; supplier: string | null;
   transactions: { id: number; type: string; quantity: number; createdAt: string }[];
 }
@@ -26,7 +26,7 @@ export default function InventoryPage() {
   const [filter, setFilter] = useState<string>('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [stockAction, setStockAction] = useState<{ id: number; type: string } | null>(null);
-  const [form, setForm] = useState({ nameEn: '', nameAm: '', category: 'RAW_MATERIAL', unit: 'kg', unitCost: '', reorderLevel: '', supplier: '', stock: '' });
+  const [form, setForm] = useState({ nameEn: '', nameAm: '', nameOm: '', category: 'RAW_MATERIAL', unit: 'kg', unitCost: '', reorderLevel: '', supplier: '', stock: '' });
   const [stockForm, setStockForm] = useState({ quantity: '', unitCost: '', note: '' });
 
   const loadData = async () => {
@@ -43,12 +43,12 @@ export default function InventoryPage() {
   const handleAdd = async () => {
     if (!form.nameEn) return;
     await createInventoryItem({
-      nameEn: form.nameEn, nameAm: form.nameAm || undefined, category: form.category,
+      nameEn: form.nameEn, nameAm: form.nameAm || undefined, nameOm: form.nameOm || undefined, category: form.category,
       unit: form.unit, unitCost: parseFloat(form.unitCost) || 0,
       reorderLevel: parseFloat(form.reorderLevel) || 0, supplier: form.supplier || undefined,
       currentStock: parseFloat(form.stock) || 0,
     });
-    setForm({ nameEn: '', nameAm: '', category: 'RAW_MATERIAL', unit: 'kg', unitCost: '', reorderLevel: '', supplier: '', stock: '' });
+    setForm({ nameEn: '', nameAm: '', nameOm: '', category: 'RAW_MATERIAL', unit: 'kg', unitCost: '', reorderLevel: '', supplier: '', stock: '' });
     setShowAddForm(false);
     loadData();
   };
@@ -80,7 +80,7 @@ export default function InventoryPage() {
     <div>
       <div className="page-header" style={{ marginBottom: 'var(--space-5)' }}>
         <div className="page-title">{t('title')}</div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           <select className="input" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: '180px', minHeight: '38px' }}>
             <option value="">{tc('all')}</option>
             <option value="RAW_MATERIAL">{t('rawMaterials')}</option>
@@ -121,6 +121,8 @@ export default function InventoryPage() {
               <input className="input" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></div>
             <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('itemNameAm')}</label>
               <input className="input" value={form.nameAm} onChange={(e) => setForm({ ...form, nameAm: e.target.value })} placeholder="አማርኛ" /></div>
+            <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('itemNameOm')}</label>
+              <input className="input" value={form.nameOm} onChange={(e) => setForm({ ...form, nameOm: e.target.value })} placeholder="Afaan Oromoo" /></div>
             <div><label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('category')}</label>
               <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                 <option value="RAW_MATERIAL">{t('rawMaterials')}</option>
@@ -154,7 +156,7 @@ export default function InventoryPage() {
             <div key={item.id} className="glass-card-static" style={{ padding: 'var(--space-4)' }}>
               <div className="flex-between" style={{ marginBottom: 'var(--space-3)' }}>
                 <div>
-                  <h3 style={{ fontSize: '0.9375rem' }}>{getLocaleName(item.nameEn, item.nameAm, locale)}</h3>
+                  <h3 style={{ fontSize: '0.9375rem' }}>{getLocaleName(item.nameEn, item.nameAm, locale, item.nameOm)}</h3>
                   <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
                     <span className="badge" style={{ fontSize: '0.6875rem' }}>{item.category === 'RAW_MATERIAL' ? t('rawMaterials') : t('miscItems')}</span>
                     <span className={`badge ${status.badge}`} style={{ fontSize: '0.6875rem' }}>{status.label}</span>

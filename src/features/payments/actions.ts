@@ -15,7 +15,7 @@ type ProcessedOrder = Prisma.OrderGetPayload<{
   include: {
     items: true;
     payment: true;
-    staff: { select: { name: true; nameAm: true } };
+    staff: { select: { name: true; nameAm: true; nameOm: true } };
   };
 }>;
 
@@ -92,7 +92,7 @@ export async function processPayment(
       // Re-fetch full order
       const fullOrder2 = await prisma.order.findUnique({
         where: { id: orderId },
-        include: { items: true, payment: true, staff: { select: { name: true, nameAm: true } } },
+        include: { items: true, payment: true, staff: { select: { name: true, nameAm: true, nameOm: true } } },
       });
       if (!fullOrder2) return { success: false, error: 'Order not found after payment' };
       await emitOutboundEvent(prisma, 'payment.completed', completed.id, {
@@ -170,7 +170,7 @@ export async function processPayment(
       include: {
         items: true,
         payment: true,
-        staff: { select: { name: true, nameAm: true } },
+        staff: { select: { name: true, nameAm: true, nameOm: true } },
       },
     });
 
@@ -208,7 +208,7 @@ export async function getPaymentByOrder(orderId: number) {
         order: {
           include: {
             items: true,
-            staff: { select: { name: true, nameAm: true } },
+            staff: { select: { name: true, nameAm: true, nameOm: true } },
           },
         },
       },

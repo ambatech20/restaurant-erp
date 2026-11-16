@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useAuth } from '@/context/AuthProvider';
 import { useSocket } from '@/context/SocketProvider';
-import { useRouter } from '@/i18n/routing';
+import { useRouter, Link } from '@/i18n/routing';
+import { getLocaleName } from '@/lib/utils';
 import LanguageToggle from '@/components/shared/LanguageToggle';
 import OfflineBanner from '@/components/shared/OfflineBanner';
 import Icon from '@/components/shared/Icon';
 import EndShiftModal from '@/features/auth/components/EndShiftModal';
-import Link from 'next/link';
 
 export default function PosLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations('common');
@@ -18,6 +18,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
   const { staff, shift, logout } = useAuth();
   const { isConnected } = useSocket();
   const router = useRouter();
+  const locale = useLocale();
   const [showEndShift, setShowEndShift] = useState(false);
 
   const handleLogout = () => {
@@ -34,7 +35,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
       <header className="app-header">
         <div className="app-logo">
           <img src="/logo.png" alt="Mesob" style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
-          <span style={{ fontSize: '1.25rem' }}>{t('appName')}</span>
+          <span className="app-name" style={{ fontSize: '1.25rem' }}>{t('appName')}</span>
         </div>
 
         <div className="header-actions">
@@ -45,9 +46,9 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
 
           {/* Staff info */}
           {staff && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '0 var(--space-3)' }}>
+            <div className="header-staff">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                <Icon name="user" size={16} /> {staff.name}
+                <Icon name="user" size={16} /> {getLocaleName(staff.name, staff.nameAm, locale, staff.nameOm)}
               </span>
             </div>
           )}
@@ -55,14 +56,14 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
           {/* Back to Dashboard (for managers) */}
           {isManager && (
             <Link href="/overview" style={{ textDecoration: 'none' }}>
-              <button className="btn btn-secondary btn-sm"><Icon name="dashboard" size={16} /> {tn('backToDashboard')}</button>
+              <button className="btn btn-secondary btn-sm"><Icon name="dashboard" size={16} /> <span className="header-label">{tn('backToDashboard')}</span></button>
             </Link>
           )}
 
           {/* End Shift button (for cashiers with active shift) */}
           {shift && !isWaiter && (
             <button className="btn btn-secondary btn-sm" onClick={() => setShowEndShift(true)} style={{ borderColor: 'var(--warning)' }}>
-              <Icon name="stop" size={16} /> {ts('endShift')}
+              <Icon name="stop" size={16} /> <span className="header-label">{ts('endShift')}</span>
             </button>
           )}
 

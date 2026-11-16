@@ -212,12 +212,12 @@ export default function IntegrationsSettingsPage() {
         ) : (
           <div>
             {backups.map((b) => (
-              <div key={b.filename} style={{ display: 'flex', justifyContent: 'space-between', padding: 8, borderBottom: '1px solid #e2e8f0', alignItems: 'center', fontSize: 13 }}>
-                <div>
-                  <b>{b.filename}</b>
+              <div key={b.filename} className="backup-row">
+                <div style={{ minWidth: 0 }}>
+                  <b style={{ overflowWrap: 'anywhere' }}>{b.filename}</b>
                   <div style={{ color: '#94a3b8' }}>{(b.size / 1024).toFixed(1)} KB · {new Date(b.createdAt).toLocaleString()}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div className="backup-actions" style={{ display: 'flex', gap: 6 }}>
                   <a href={`/api/v1/backup/${b.filename}`} style={{ ...btn, background: '#0284c7', textDecoration: 'none', display: 'inline-block' }}>Download</a>
                   <button style={{ ...btn, background: '#dc2626' }} onClick={() => handleDeleteBackup(b.filename)} disabled={pending}>Delete</button>
                 </div>

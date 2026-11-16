@@ -7,6 +7,7 @@ interface StaffInfo {
   id: number;
   name: string;
   nameAm: string | null;
+  nameOm: string | null;
   role: string;
 }
 

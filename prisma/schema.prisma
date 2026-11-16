@@ -17,6 +17,7 @@ model Staff {
   id          Int      @id @default(autoincrement())
   name        String
   nameAm      String?
+  nameOm      String?
   pinHash     String
   role        String   @default("CASHIER") // CASHIER | KITCHEN | MANAGER | ADMIN
   isActive    Boolean  @default(true)
@@ -113,6 +114,7 @@ model Category {
   id        Int        @id @default(autoincrement())
   nameEn    String
   nameAm    String?
+  nameOm    String?
   sortOrder Int        @default(0)
   isActive  Boolean    @default(true)
   color     String?
@@ -128,8 +130,10 @@ model MenuItem {
   id          Int      @id @default(autoincrement())
   nameEn      String
   nameAm      String?
+  nameOm      String?
   descEn      String?
   descAm      String?
+  descOm      String?
   price       Float
   categoryId  Int
   category    Category @relation(fields: [categoryId], references: [id])
@@ -163,6 +167,7 @@ model MenuVariant {
   menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   nameEn      String
   nameAm      String?
+  nameOm      String?
   priceOffset Float    @default(0) // Usually 0 for same-price variants
   isActive    Boolean  @default(true)
 
@@ -201,9 +206,11 @@ model Order {
   orderNumber String      @unique
   type        String      @default("DINE_IN") // DINE_IN | TAKEOUT | DINE_IN_QR (channel)
   status      String      @default("PENDING") // PENDING | PREPARING | READY | SERVED | CANCELLED
-  paymentStatus String    @default("UNPAID") // UNPAID | PAID
+  paymentStatus String    @default("UNPAID") // UNPAID | PAID | ON_TAB
   clientKey   String?     @unique
   tableNumber String?
+  customerId  Int?
+  customer    Customer?   @relation(fields: [customerId], references: [id])
   staffId     Int
   staff       Staff       @relation(fields: [staffId], references: [id])
   shiftId     Int
@@ -217,11 +224,15 @@ model Order {
   confirmedByStaffId Int?
   confirmedBy Staff?      @relation("OrderConfirmedBy", fields: [confirmedByStaffId], references: [id])
   confirmedAt DateTime?
+  // Stamped only when the bill is actually handed to the guest; reopening a
+  // served bill never clears it.
+  deliveredAt DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
   items       OrderItem[]
   payment     Payment?
+  tabEntries  TabEntry[]
 
   @@index([status])
   @@index([paymentStatus])
@@ -229,6 +240,7 @@ model Order {
   @@index([staffId])
   @@index([shiftId])
   @@index([orderNumber])
+  @@index([tableNumber, paymentStatus, status])
 }
 
 model OrderItem {
@@ -243,13 +255,52 @@ model OrderItem {
   unitPrice    Float
   itemNameEn   String
   itemNameAm   String?
+  itemNameOm   String?
   totalPrice   Float
   status       String   @default("PENDING") // PENDING | PREPARING | READY | SERVED
   requiresTicket Boolean  @default(true)
   note         String?
 
+  usage        InventoryTransaction[]
+
   @@index([orderId])
   @@index([status])
+}
+
+// ============ CUSTOMER TABS (on-credit bills) ============
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  // Outstanding tab balance: charges minus payments.
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders    Order[]
+  tabEntries TabEntry[]
+
+  @@index([name])
+  @@index([phone])
+}
+
+model TabEntry {
+  id         Int      @id @default(autoincrement())
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id])
+  orderId    Int?
+  order      Order?   @relation(fields: [orderId], references: [id])
+  kind       String   // CHARGE | PAYMENT
+  amount     Float
+  note       String?
+  staffId    Int?
+  clientKey  String?  @unique
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@index([orderId])
+  @@index([createdAt])
 }
 
 // ============ PAYMENTS ============
@@ -310,6 +361,7 @@ model InventoryItem {
   id            Int       @id @default(autoincrement())
   nameEn        String
   nameAm        String?
+  nameOm        String?
   category      String    @default("RAW_MATERIAL") // RAW_MATERIAL | MISC
   unit          String    @default("kg") // kg | g | l | ml | pcs | box | bag | bottle
   currentStock  Float     @default(0)
@@ -334,6 +386,9 @@ model InventoryTransaction {
   id              Int            @id @default(autoincrement())
   inventoryItemId Int
   inventoryItem   InventoryItem  @relation(fields: [inventoryItemId], references: [id])
+  // Set for order usage rows: one deduction per order line and stock item.
+  orderItemId     Int?
+  orderItem       OrderItem?     @relation(fields: [orderItemId], references: [id])
   type            String         // PURCHASE | USAGE | WASTAGE | ADJUSTMENT
   quantity        Float
   unitCost        Float          @default(0)
@@ -345,6 +400,7 @@ model InventoryTransaction {
   reason          String?
   createdAt       DateTime       @default(now())
 
+  @@unique([orderItemId, inventoryItemId])
   @@index([inventoryItemId])
   @@index([type])
   @@index([shiftId])
@@ -358,12 +414,14 @@ model AuditLog {
   staffId   Int
   staff     Staff    @relation(fields: [staffId], references: [id])
   action    String
+  clientKey String?
   details   String?
   entity    String?
   before    String?
   after     String?
   createdAt DateTime @default(now())
 
+  @@unique([action, clientKey])
   @@index([staffId])
   @@index([action])
   @@index([entity])

@@ -1,0 +1,41 @@
+{
+  "name": "@eliabay100-del/pcheck-erp-sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for integrating ERP systems with P-Check payment verification API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "payment",
+    "verification",
+    "ethiopia",
+    "telebirr",
+    "erp",
+    "pcheck"
+  ],
+  "author": "Eli Bay <eliabay100@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eliabay100-del/pcheck.git",
+    "directory": "packages/pcheck-erp-sdk"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "ts-jest": "^29.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

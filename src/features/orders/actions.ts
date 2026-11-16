@@ -2,17 +2,28 @@
 
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { getTranslations } from 'next-intl/server';
 import { authorize, ALL_ROLES, FLOOR_ROLES, MANAGEMENT_ROLES } from '@/lib/auth';
-import { TAX_RATE, computeOrderTotals, parseMoney, roundMoney } from '@/lib/money';
 import { emitOutboundEvent } from '@/lib/integrations/outbox';
 import {
   ACTIVE_ORDER_STATUSES,
   ORDER_STATUSES,
   READY_FOR_PICKUP,
-  isOrderItemStatus,
-  isOrderStatus,
-  rollUpOrderStatus,
 } from '@/lib/orderStatus';
+import {
+  BILL_ERROR_MESSAGES,
+  appendItemsToBill,
+  createOrderRecord,
+  listCashierUnpaidBills,
+  listOpenBillsForTable,
+  updateOrderItemStatusRecord,
+  updateOrderStatusRecord,
+  type BillErrorCode,
+  type NewOrderLine,
+} from '@/server/services/order-bill.service';
+
+type BillOrder = Extract<Awaited<ReturnType<typeof createOrderRecord>>, { ok: true }>['order'];
+type ActionFailure = { success: false; code: BillErrorCode; error: string };
 
 interface CreateOrderInput {
   type: string;
@@ -21,319 +32,131 @@ interface CreateOrderInput {
   discount?: number;
   clientKey?: string;
   autoConfirm?: boolean;
-  items: {
-    menuItemId: number;
-    variantId?: number;
-    quantity: number;
-    note?: string;
-    overridePrice?: number;
-  }[];
+  items: NewOrderLine[];
 }
 
-const ORDER_TYPES = ['DINE_IN', 'TAKEOUT'];
-
-export async function createOrder(input: CreateOrderInput) {
+/**
+ * Server errors are stable codes; the till renders them in the active
+ * language. The English text is the fallback for API/offline callers.
+ */
+async function localizedError(code: BillErrorCode): Promise<string> {
+  const fallback = BILL_ERROR_MESSAGES[code] ?? BILL_ERROR_MESSAGES.FAILED;
   try {
-    const auth = await authorize(FLOOR_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error };
+    const t = await getTranslations('posErrors');
+    return t.has(code) ? t(code) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
-    const cookieStore = await cookies();
-    const staffId = auth.session.staffId;
-    const shiftId = parseInt(cookieStore.get('shiftId')?.value || '0');
+async function failure(code: BillErrorCode) {
+  return { success: false as const, code, error: await localizedError(code) };
+}
 
-    if (!shiftId) {
-      return { success: false, error: 'No active shift' };
-    }
+export async function createOrder(input: CreateOrderInput): Promise<
+  ActionFailure | { success: true; order: BillOrder; replayed?: boolean }
+> {
+  const auth = await authorize(FLOOR_ROLES);
+  if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error };
 
-    if (!ORDER_TYPES.includes(input.type)) {
-      return { success: false, error: 'Invalid order type' };
-    }
-    if (!Array.isArray(input.items) || input.items.length === 0) {
-      return { success: false, error: 'Order must contain at least one item' };
-    }
-    if (input.items.some((i) => !Number.isFinite(i.quantity) || i.quantity <= 0)) {
-      return { success: false, error: 'Item quantities must be greater than zero' };
-    }
+  const cookieStore = await cookies();
+  const shiftId = parseInt(cookieStore.get('shiftId')?.value || '0', 10);
 
-    // Only management may override a menu price (custom fees / comps) or grant
-    // a bill-level discount.
-    const isManagement = MANAGEMENT_ROLES.includes(auth.session.role);
-    const canOverridePrice = isManagement;
-    if (!canOverridePrice && input.items.some((i) => i.overridePrice !== undefined)) {
-      return { success: false, error: 'Not authorized to override prices' };
-    }
+  const result = await createOrderRecord(
+    { ...input, shiftId },
+    { staffId: auth.session.staffId, role: auth.session.role },
+  );
+  if (!result.ok) return failure(result.code);
 
-    let discount = 0;
-    if (input.discount !== undefined) {
-      const parsedDiscount = parseMoney(input.discount);
-      if (parsedDiscount === null || parsedDiscount < 0) {
-        return { success: false, error: 'Discount must be a positive amount' };
-      }
-      if (!isManagement) {
-        return { success: false, error: 'Not authorized to apply a discount' };
-      }
-      discount = parsedDiscount;
-    }
+  const { order } = result;
+  await emitOutboundEvent(prisma, 'order.created', order.id, {
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    type: order.type,
+    status: order.status,
+    tableNumber: order.tableNumber ?? null,
+    subtotal: order.subtotal,
+    taxRate: order.taxRate,
+    taxAmount: order.taxAmount,
+    discount: order.discount,
+    total: order.total,
+    staffId: order.staffId,
+    shiftId: order.shiftId,
+    createdAt: order.createdAt,
+  });
 
-    // Idempotency: replay with an existing clientKey returns the original order.
-    if (input.clientKey) {
-      const existing = await prisma.order.findUnique({
-        where: { clientKey: input.clientKey },
-        include: { items: { include: { menuItem: true } }, staff: { select: { name: true, nameAm: true } }, payment: true },
-      });
-      if (existing) {
-        return { success: true, order: existing, replayed: true } as any;
-      }
-    }
-    const menuItemIds = input.items.map((i) => i.menuItemId);
-    const variantIds = input.items.map((i) => i.variantId).filter(Boolean) as number[];
-    
-    const menuItems = await prisma.menuItem.findMany({
-      where: { id: { in: menuItemIds } },
-    });
-    const variants = await prisma.menuVariant.findMany({
-      where: { id: { in: variantIds } },
-    });
+  if (result.replayed) return { success: true as const, order, replayed: true };
 
-    const menuItemMap = new Map(menuItems.map((mi) => [mi.id, mi]));
-    const variantMap = new Map(variants.map((v) => [v.id, v]));
-
-    // Generate order number (daily sequential)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayOrderCount = await prisma.order.count({
-      where: { createdAt: { gte: today } },
-    });
-    const orderNumber = `${today.toISOString().slice(0, 10).replace(/-/g, '')}-${String(todayOrderCount + 1).padStart(3, '0')}`;
-
-    // Build order items with price snapshots
-    const orderItems = input.items.map((item) => {
-      const menuItem = menuItemMap.get(item.menuItemId);
-      if (!menuItem) throw new Error(`Menu item ${item.menuItemId} not found`);
-      
-      let unitPrice = menuItem.price;
-      let itemNameEn = menuItem.nameEn;
-      let itemNameAm = menuItem.nameAm;
-
-      if (item.variantId) {
-        const variant = variantMap.get(item.variantId);
-        if (variant) {
-          unitPrice += variant.priceOffset;
-          itemNameEn = `${menuItem.nameEn} (${variant.nameEn})`;
-          if (menuItem.nameAm && variant.nameAm) {
-            itemNameAm = `${menuItem.nameAm} (${variant.nameAm})`;
-          }
-        }
-      }
-
-      // Allow override price for custom fees
-      if (item.overridePrice !== undefined) {
-        unitPrice = item.overridePrice;
-      }
-
-      return {
-        menuItemId: item.menuItemId,
-        variantId: item.variantId,
-        quantity: item.quantity,
-        unitPrice,
-        itemNameEn,
-        itemNameAm,
-        totalPrice: unitPrice * item.quantity,
-        note: item.note,
-        status: 'PENDING',
-        requiresTicket: menuItem.requiresTicket,
-      };
-    });
-
-    // Calculate totals — the discount comes off before VAT.
-    const taxRate = TAX_RATE;
-    const { subtotal, discount: appliedDiscount, taxAmount, total } = computeOrderTotals(
-      orderItems.map((i) => ({ unitPrice: i.unitPrice, quantity: i.quantity })),
-      discount,
-      taxRate,
-    );
-
-    // Create order with items
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        type: input.type,
-        status: 'PENDING',
-        clientKey: input.clientKey ?? null,
-        tableNumber: input.tableNumber,
-        staffId,
-        shiftId,
-        subtotal,
-        taxRate,
-        taxAmount,
-        discount: appliedDiscount,
-        total,
-        note: input.note,
-        items: {
-          create: orderItems.map((i) => ({ ...i, totalPrice: roundMoney(i.totalPrice) })),
-        },
-      },
-      include: {
-        items: {
-          include: { menuItem: true },
-        },
-        staff: {
-          select: { name: true, nameAm: true },
-        },
-      },
-    });
-
-    await emitOutboundEvent(prisma, 'order.created', order.id, {
+  if (input.autoConfirm) {
+    await emitOutboundEvent(prisma, 'order.status.changed', order.id, {
       orderId: order.id,
-      orderNumber,
-      type: input.type,
-      status: 'PENDING',
-      tableNumber: input.tableNumber ?? null,
-      subtotal,
-      taxRate,
-      taxAmount,
-      discount: appliedDiscount,
-      total,
-      staffId,
-      shiftId,
-      createdAt: order.createdAt ?? new Date().toISOString(),
+      newStatus: order.status,
+      updatedAt: new Date().toISOString(),
     });
+  }
 
-    // Auto-confirm: move to PREPARING and stamp confirmedAt.
-    if (input.autoConfirm) {
-      try {
-        await prisma.order.update({
-          where: { id: order.id },
-          data: {
-            status: 'PREPARING',
-            confirmedByStaffId: staffId,
-            confirmedAt: new Date(),
-            items: { updateMany: { where: { orderId: order.id }, data: { status: 'PREPARING' } } },
-          },
-        });
-        await emitOutboundEvent(prisma, 'order.status.changed', order.id, {
-          orderId: order.id,
-          newStatus: 'PREPARING',
-          updatedAt: new Date().toISOString(),
-        });
-      } catch (e) {
-        console.error('Auto-confirm failed:', e);
-      }
-    }
+  return { success: true as const, order };
+}
 
-    return { success: true, order };
-  } catch (error: any) {
-    if (error?.code === 'P2002' && input.clientKey) {
-      const existing = await prisma.order.findUnique({
-        where: { clientKey: input.clientKey },
-        include: { items: { include: { menuItem: true } }, staff: { select: { name: true, nameAm: true } }, payment: true },
-      });
-      if (existing) return { success: true, order: existing, replayed: true } as any;
-    }
-    console.error('Create order error:', error);
-    return { success: false, error: 'Failed to create order' };
+/** Open bills for a table — the till's append targets. */
+export async function getOpenBillsForTable(tableNumber: string) {
+  const auth = await authorize(FLOOR_ROLES);
+  if (!auth.ok) return { success: false, error: auth.error, bills: [] };
+
+  if (!tableNumber) return { success: true, bills: [] };
+  try {
+    const bills = await listOpenBillsForTable(tableNumber);
+    return { success: true, bills };
+  } catch (error) {
+    console.error('Get open bills error:', error);
+    return { success: false, error: BILL_ERROR_MESSAGES.FAILED, bills: [] };
   }
 }
 
 export async function updateOrderStatus(orderId: number, status: string) {
-  try {
-    const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error };
+  const auth = await authorize(ALL_ROLES);
+  if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error };
 
-    if (!isOrderStatus(status)) {
-      return { success: false, error: `Unknown order status: ${status}` };
-    }
+  const result = await updateOrderStatusRecord({
+    orderId,
+    status,
+    actor: { staffId: auth.session.staffId, role: auth.session.role },
+  });
+  if (!result.ok) return failure(result.code);
 
-    const existing = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
-    if (!existing) return { success: false, error: 'Order not found' };
-    if (existing.status === 'CANCELLED') return { success: false, error: 'Order is cancelled' };
-    if (existing.status === 'SERVED' && status !== 'SERVED') {
-      return { success: false, error: 'Cannot move a served order backwards' };
-    }
-    if (status === 'CANCELLED') {
-      return { success: false, error: 'Use cancelOrder to cancel' };
-    }
-
-    const order = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status,
-        items: {
-          // CANCELLED keeps the item-level value consistent with the order.
-          updateMany: {
-            where: { orderId },
-            data: { status: isOrderItemStatus(status) ? status : 'CANCELLED' },
-          },
-        },
-      },
-      include: {
-        items: true,
-        staff: { select: { name: true, nameAm: true } },
-      },
-    });
-
+  if (result.statusChanged) {
     await emitOutboundEvent(prisma, 'order.status.changed', orderId, {
       orderId,
-      newStatus: status,
+      newStatus: result.order.status,
       updatedAt: new Date().toISOString(),
     });
-
-    return { success: true, order };
-  } catch (error) {
-    console.error('Update order status error:', error);
-    return { success: false, error: 'Failed to update order status' };
   }
+
+  return { success: true as const, order: result.order, statusChanged: result.statusChanged };
 }
 
 export async function updateOrderItemStatus(orderItemId: number, status: string) {
-  try {
-    const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error };
+  const auth = await authorize(ALL_ROLES);
+  if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error };
 
-    if (!isOrderItemStatus(status)) {
-      return { success: false, error: `Unknown item status: ${status}` };
-    }
+  const result = await updateOrderItemStatusRecord({
+    orderItemId,
+    status,
+    actor: { staffId: auth.session.staffId, role: auth.session.role },
+  });
+  if (!result.ok) return failure(result.code);
 
-    const item = await prisma.orderItem.update({
-      where: { id: orderItemId },
-      data: { status },
-    });
-
-    // Roll the order up: every item done → READY, some started → PREPARING.
-    const allItems = await prisma.orderItem.findMany({
-      where: { orderId: item.orderId },
-    });
-
-    if (allItems.every((i) => i.status === status)) {
-      await prisma.order.update({
-        where: { id: item.orderId },
-        data: { status },
-      });
-    }
-
-    return { success: true, item };
-  } catch (error) {
-    console.error('Update item status error:', error);
-    return { success: false, error: 'Failed to update item status' };
-  }
+  return { success: true as const, item: result.item };
 }
 
 export async function getUnpaidOrders() {
   try {
     const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error, orders: [] };
+    if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error, orders: [] };
 
-    const orders = await prisma.order.findMany({
-      where: {
-        payment: null,
-        status: { not: 'CANCELLED' }
-      },
-      include: {
-        items: true,
-        staff: { select: { name: true, nameAm: true, role: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Cashier queue: unpaid bills that reached the guest. Bills still in the
+    // kitchen stay on the kitchen screens.
+    const orders = await listCashierUnpaidBills();
 
     return { success: true, orders };
   } catch (error) {
@@ -345,7 +168,7 @@ export async function getUnpaidOrders() {
 export async function getReadyOrders() {
   try {
     const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error, orders: [] };
+    if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error, orders: [] };
 
     const orders = await prisma.order.findMany({
       where: {
@@ -354,7 +177,7 @@ export async function getReadyOrders() {
       },
       include: {
         items: true,
-        staff: { select: { name: true, nameAm: true, role: true } },
+        staff: { select: { name: true, nameAm: true, nameOm: true, role: true } },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -369,7 +192,7 @@ export async function getReadyOrders() {
 export async function getActiveOrders() {
   try {
     const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error, orders: [] };
+    if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error, orders: [] };
 
     const orders = await prisma.order.findMany({
       where: {
@@ -377,7 +200,7 @@ export async function getActiveOrders() {
       },
       include: {
         items: true,
-        staff: { select: { name: true, nameAm: true } },
+        staff: { select: { name: true, nameAm: true, nameOm: true } },
         payment: true,
       },
       orderBy: { createdAt: 'asc' },
@@ -393,7 +216,7 @@ export async function getActiveOrders() {
 export async function getOrderHistory(page: number = 1, limit: number = 20, status?: string) {
   try {
     const auth = await authorize(MANAGEMENT_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error, orders: [], total: 0, pages: 0 };
+    if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error, orders: [], total: 0, pages: 0 };
 
     if (status && !(ORDER_STATUSES as readonly string[]).includes(status)) {
       return { success: false, error: `Unknown order status: ${status}`, orders: [], total: 0, pages: 0 };
@@ -404,7 +227,7 @@ export async function getOrderHistory(page: number = 1, limit: number = 20, stat
         where,
         include: {
           items: true,
-          staff: { select: { name: true, nameAm: true } },
+          staff: { select: { name: true, nameAm: true, nameOm: true } },
           payment: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -424,7 +247,7 @@ export async function getOrderHistory(page: number = 1, limit: number = 20, stat
 export async function startOrderInKitchen(orderId: number) {
   try {
     const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error };
+    if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error };
 
     const order = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true, payment: true } });
     if (!order) return { success: false, error: 'Order not found' };
@@ -460,48 +283,15 @@ export async function confirmOrderAction(orderId: number) {
 }
 
 export async function markOrderServed(orderId: number) {
-  try {
-    const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error };
-
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) return { success: false, error: 'Order not found' };
-    if (order.status === 'CANCELLED') return { success: false, error: 'Order is cancelled' };
-
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'SERVED',
-        items: { updateMany: { where: { orderId }, data: { status: 'SERVED' } } },
-      },
-    });
-
-    // Record stock usage (idempotent) so the ledger sees usage for dine-in,
-    // takeout and QR orders alike.
-    try {
-      const { recordUsageForOrder } = await import('@/server/services/reconciliation.service');
-      await recordUsageForOrder(orderId, order.shiftId);
-    } catch (e) {
-      console.error('recordUsageForOrder failed:', e);
-    }
-
-    await emitOutboundEvent(prisma, 'order.status.changed', orderId, {
-      orderId,
-      newStatus: 'SERVED',
-      updatedAt: new Date().toISOString(),
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error('Mark served error:', error);
-    return { success: false, error: 'Failed to mark served' };
-  }
+  // Same path as a status change: stamps deliveredAt and records stock for the
+  // lines that are being handed over.
+  return updateOrderStatus(orderId, 'SERVED');
 }
 
 export async function cancelOrder(orderId: number, reason?: string) {
   try {
     const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error };
+    if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error };
 
     if (!['ADMIN', 'MANAGER', 'KITCHEN'].includes(auth.session.role)) {
       return { success: false, error: 'Not authorized to cancel' };
@@ -511,6 +301,9 @@ export async function cancelOrder(orderId: number, reason?: string) {
     if (!order) return { success: false, error: 'Order not found' };
     if (order.status === 'CANCELLED') return { success: true };
     if (order.payment) return { success: false, error: 'Cannot cancel a paid order' };
+    if (order.paymentStatus === 'ON_TAB') {
+      return { success: false, error: 'This bill sits on a customer tab — settle the tab before cancelling' };
+    }
 
     await prisma.order.update({
       where: { id: orderId },
@@ -542,86 +335,49 @@ export async function cancelOrder(orderId: number, reason?: string) {
   }
 }
 
-export async function addItemsToOrder(orderId: number, items: { menuItemId: number; variantId?: number; quantity: number; note?: string; overridePrice?: number }[], clientKey?: string) {
-  try {
-    const auth = await authorize(ALL_ROLES);
-    if (!auth.ok) return { success: false, error: auth.error };
+/**
+ * Append a second course (or any extra round) to the table's open bill.
+ * Kept under the original name so the offline queue can replay it unchanged.
+ */
+export async function addItemsToOrder(
+  orderId: number,
+  items: NewOrderLine[],
+  clientKey?: string,
+): Promise<
+  ActionFailure | { success: true; order: BillOrder; replayed: boolean; statusChanged: boolean }
+> {
+  const auth = await authorize(FLOOR_ROLES);
+  if (!auth.ok) return { success: false as const, code: 'NOT_AUTHORIZED' as const, error: auth.error };
 
-    if (clientKey) {
-      const existing = await prisma.auditLog.findFirst({ where: { action: 'ORDER_ADD_ITEMS', details: { contains: clientKey } } });
-      if (existing) return { success: true, replayed: true };
-    }
+  const result = await appendItemsToBill(
+    { orderId, items, clientKey },
+    { staffId: auth.session.staffId, role: auth.session.role },
+  );
+  if (!result.ok) return failure(result.code);
 
-    const order = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true, payment: true } });
-    if (!order) return { success: false, error: 'Order not found' };
-    if (order.status === 'CANCELLED' || order.status === 'SERVED') return { success: false, error: 'Order is no longer editable' };
-    if (order.payment) return { success: false, error: 'Cannot add items to a paid order' };
-
-    const menuItemIds = items.map((i) => i.menuItemId);
-    const variantIds = items.map((i) => i.variantId).filter(Boolean) as number[];
-    const menuItems = await prisma.menuItem.findMany({ where: { id: { in: menuItemIds } } });
-    const variants = await prisma.menuVariant.findMany({ where: { id: { in: variantIds } } });
-    const menuItemMap = new Map(menuItems.map((mi) => [mi.id, mi]));
-    const variantMap = new Map(variants.map((v) => [v.id, v]));
-
-    const newLines = items.map((item) => {
-      const menuItem = menuItemMap.get(item.menuItemId);
-      if (!menuItem) throw new Error('Menu item ' + item.menuItemId + ' not found');
-      let unitPrice = menuItem.price;
-      let itemNameEn = menuItem.nameEn;
-      let itemNameAm = menuItem.nameAm;
-      if (item.variantId) {
-        const variant = variantMap.get(item.variantId);
-        if (variant) {
-          unitPrice += variant.priceOffset;
-          itemNameEn = menuItem.nameEn + ' (' + variant.nameEn + ')';
-          if (menuItem.nameAm && variant.nameAm) itemNameAm = menuItem.nameAm + ' (' + variant.nameAm + ')';
-        }
-      }
-      if (item.overridePrice !== undefined) unitPrice = item.overridePrice;
-      return {
+  if (!result.replayed) {
+    await emitOutboundEvent(prisma, 'order.items.added', orderId, {
+      orderId,
+      orderNumber: result.order.orderNumber,
+      tableNumber: result.order.tableNumber ?? null,
+      addedCount: result.addedCount,
+      deltaTotal: result.afterTotal - result.beforeTotal,
+      total: result.afterTotal,
+      status: result.order.status,
+    });
+    if (result.statusChanged) {
+      await emitOutboundEvent(prisma, 'order.status.changed', orderId, {
         orderId,
-        menuItemId: item.menuItemId,
-        variantId: item.variantId,
-        quantity: item.quantity,
-        unitPrice,
-        itemNameEn,
-        itemNameAm,
-        totalPrice: unitPrice * item.quantity,
-        note: item.note,
-        status: order.status === 'PENDING' ? 'PENDING' : 'PREPARING',
-        requiresTicket: menuItem.requiresTicket,
-      };
-    });
-
-    await prisma.$transaction(async (tx) => {
-      await tx.orderItem.createMany({ data: newLines });
-      const allItems = await tx.orderItem.findMany({ where: { orderId } });
-      const subtotal = allItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-      const discount = order.discount;
-      const taxRate = order.taxRate;
-      const taxable = subtotal - discount;
-      const taxAmount = Math.round((taxable * taxRate + Number.EPSILON) * 100) / 100;
-      const total = taxable + taxAmount;
-      await tx.order.update({
-        where: { id: orderId },
-        data: { subtotal, taxAmount, total },
+        newStatus: result.order.status,
+        updatedAt: new Date().toISOString(),
       });
-    });
-
-    await prisma.auditLog.create({
-      data: {
-        staffId: auth.session.staffId,
-        action: 'ORDER_ADD_ITEMS',
-        details: JSON.stringify({ orderId, clientKey: clientKey ?? null, addedCount: items.length }),
-      },
-    });
-
-    await emitOutboundEvent(prisma, 'order.items.added', orderId, { orderId, addedCount: items.length });
-
-    return { success: true };
-  } catch (error) {
-    console.error('Add items to order error:', error);
-    return { success: false, error: 'Failed to add items' };
+    }
   }
+
+  return {
+    success: true as const,
+    order: result.order,
+    replayed: result.replayed ?? false,
+    statusChanged: result.statusChanged,
+  };
 }

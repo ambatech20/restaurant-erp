@@ -11,6 +11,7 @@ export interface ScheduledVariant {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   priceOffset: number;
   scheduledIncrease: number;
   scheduledIncreaseStart: number;
@@ -22,10 +23,11 @@ export interface ScheduledMenuItem {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   price: number;
   kind: string;
   categoryId: number;
-  category: { nameEn: string; nameAm: string | null; color: string | null };
+  category: { nameEn: string; nameAm: string | null; nameOm: string | null; color: string | null };
   variants: ScheduledVariant[];
   scheduledIncrease: number;
   scheduledIncreaseStart: number;
@@ -86,8 +88,8 @@ export default function ScheduledPriceEditor({ items, onClose, onSaved }: Schedu
     const result: Row[] = [];
     for (const item of items) {
       if (item.kind !== 'PRODUCT') continue;
-      const itemName = getLocaleName(item.nameEn, item.nameAm, locale);
-      const categoryName = getLocaleName(item.category.nameEn, item.category.nameAm, locale);
+      const itemName = getLocaleName(item.nameEn, item.nameAm, locale, item.nameOm);
+      const categoryName = getLocaleName(item.category.nameEn, item.category.nameAm, locale, item.category.nameOm);
       const itemKey = `item:${item.id}`;
 
       result.push({
@@ -108,7 +110,7 @@ export default function ScheduledPriceEditor({ items, onClose, onSaved }: Schedu
           key: `variant:${variant.id}`,
           targetType: 'variant',
           id: variant.id,
-          name: getLocaleName(variant.nameEn, variant.nameAm, locale),
+          name: getLocaleName(variant.nameEn, variant.nameAm, locale, variant.nameOm),
           parentName: itemName,
           parentKey: itemKey,
           categoryName,

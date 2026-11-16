@@ -13,6 +13,7 @@ interface ShiftData {
   id: number;
   staffName: string;
   staffNameAm: string | null;
+  staffNameOm?: string | null;
   startTime: string;
   endTime: string | null;
   openingCash: number;
@@ -31,6 +32,15 @@ export default function ShiftsPage() {
   const locale = useLocale();
   const { staff } = useAuth();
   const [shifts, setShifts] = useState<ShiftData[]>([]);
+
+  const statusLabel = (status: string) => {
+    if (status === 'OPEN') return t('open');
+    if (status === 'CLOSED') return t('closed');
+    if (status === 'PENDING_APPROVAL') return t('pendingApproval');
+    if (status === 'APPROVED') return t('approved');
+    if (status === 'REJECTED') return t('rejected');
+    return status;
+  };
 
   const loadShifts = async () => {
     const result = await getShiftReports();
@@ -77,14 +87,14 @@ export default function ShiftsPage() {
               <div className="flex-between" style={{ marginBottom: 'var(--space-4)' }}>
                 <div>
                   <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Icon name="user" size={16} /> {getLocaleName(shift.staffName, shift.staffNameAm, locale)}
+                    <Icon name="user" size={16} /> {getLocaleName(shift.staffName, shift.staffNameAm, locale, shift.staffNameOm)}
                   </h3>
                   <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: 'var(--space-1)' }}>
                     {formatDateTime(shift.startTime, locale)}
                     {shift.endTime && ` → ${formatDateTime(shift.endTime, locale)}`}
                   </p>
                 </div>
-                <span className={`badge ${statusBadge}`}>{shift.status.replace('_', ' ')}</span>
+                <span className={`badge ${statusBadge}`}>{statusLabel(shift.status)}</span>
               </div>
 
               {/* Stats grid */}

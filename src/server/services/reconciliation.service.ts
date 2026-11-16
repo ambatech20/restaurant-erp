@@ -35,24 +35,27 @@ export function exactPerUnitConsumption(ingredient: {
   return ingredient.quantity
 }
 
+/**
+ * Deduct stock for the lines of an order that have been served.
+ *
+ * Idempotent per order LINE: the ledger row is keyed by (order line, stock
+ * item), so re-serving a reopened bill only deducts the lines that were added
+ * after the reopen. Fee lines and cancelled lines never consume stock.
+ */
 export async function recordUsageForOrder(orderId: number, shiftId?: number) {
-  // idempotent: if USAGE movements already exist for this order, skip
-  const [existing, order] = await Promise.all([
-    prisma.inventoryTransaction.findFirst({
-      where: { reason: `order:${orderId}`, type: 'USAGE' },
-      select: { id: true },
-    }),
-    prisma.order.findUnique({
-      where: { id: orderId },
-      select: {
-        shiftId: true,
-        staffId: true,
-        items: { where: { requiresTicket: true }, select: { menuItemId: true, quantity: true } },
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      shiftId: true,
+      staffId: true,
+      items: {
+        where: { status: 'SERVED', requiresTicket: true },
+        select: { id: true, menuItemId: true, quantity: true },
       },
-    }),
-  ])
-  if (existing) return { skipped: true }
+    },
+  })
   if (!order) throw new Error('order not found')
+  if (order.items.length === 0) return { skipped: true, reason: 'no served lines' }
 
   const menuItemIds = [...new Set(order.items.map((line) => line.menuItemId))]
   const recipes = menuItemIds.length
@@ -75,26 +78,37 @@ export async function recordUsageForOrder(orderId: number, shiftId?: number) {
     else recipesByMenuItem.set(recipe.menuItemId, [recipe])
   }
 
-  // Aggregate all lines per stock item so the ledger write is one INSERT
-  // instead of one transaction per recipe line.
+  const lineIds = order.items.map((line) => line.id)
+  const alreadyRecorded = await prisma.inventoryTransaction.findMany({
+    where: { orderItemId: { in: lineIds } },
+    select: { orderItemId: true, inventoryItemId: true },
+  })
+  const recorded = new Set(alreadyRecorded.map((row) => `${row.orderItemId}:${row.inventoryItemId}`))
+
+  // Aggregate the new deductions per stock item so movement between the
+  // ledger and the derived `currentStock` cache is one UPDATE per ingredient.
   const usage = new Map<number, number>()
+  const rows: { orderItemId: number; inventoryItemId: number; quantity: number }[] = []
   for (const line of order.items) {
     for (const recipe of recipesByMenuItem.get(line.menuItemId) ?? []) {
+      const key = `${line.id}:${recipe.inventoryItemId}`
+      if (recorded.has(key)) continue
       const quantity = Math.abs(perUnitConsumption(recipe) * line.quantity)
+      if (quantity <= 0) continue
+      rows.push({ orderItemId: line.id, inventoryItemId: recipe.inventoryItemId, quantity })
       usage.set(recipe.inventoryItemId, (usage.get(recipe.inventoryItemId) ?? 0) + quantity)
     }
   }
 
-  if (usage.size === 0) return { skipped: true, reason: 'no recipes' }
+  if (rows.length === 0) return { skipped: true, reason: 'already recorded' }
 
-  // Ledger write and the derived currentStock cache move together — otherwise
-  // inventory slowly drifts away from the recipe-derived usage.
   const created = await prisma.$transaction(async (tx) => {
     const result = await tx.inventoryTransaction.createMany({
-      data: [...usage].map(([inventoryItemId, quantity]) => ({
-        inventoryItemId,
+      data: rows.map((row) => ({
+        inventoryItemId: row.inventoryItemId,
+        orderItemId: row.orderItemId,
         type: 'USAGE',
-        quantity: -quantity, // usage reduces stock
+        quantity: -row.quantity, // usage reduces stock
         shiftId: shiftId ?? order.shiftId ?? null,
         reason: `order:${orderId}`,
         staffId: order.staffId ?? null,
@@ -125,6 +139,7 @@ export interface PeriodOrderUsageLine {
   inventoryItemId: number
   nameEn: string
   nameAm: string | null
+  nameOm: string | null
   unit: string
   quantity: number
 }
@@ -139,7 +154,7 @@ export interface PeriodOrderUsage {
   confirmedAt: Date | null
   staffName: string | null
   kitchenStatus: string | null
-  items: { nameEn: string; nameAm: string | null; quantity: number }[]
+  items: { nameEn: string; nameAm: string | null; nameOm: string | null; quantity: number }[]
   usage: PeriodOrderUsageLine[]
 }
 
@@ -176,6 +191,7 @@ export async function expectedUsageForPeriod(
         select: {
           itemNameEn: true,
           itemNameAm: true,
+          itemNameOm: true,
           quantity: true,
           requiresTicket: true,
           menuItem: {
@@ -186,7 +202,7 @@ export async function expectedUsageForPeriod(
                   quantity: true,
                   yieldStockQuantity: true,
                   yieldUnits: true,
-                  inventoryItem: { select: { nameEn: true, nameAm: true, unit: true } },
+                  inventoryItem: { select: { nameEn: true, nameAm: true, nameOm: true, unit: true } },
                 },
               },
             },
@@ -213,6 +229,7 @@ export async function expectedUsageForPeriod(
             inventoryItemId: ingredient.inventoryItemId,
             nameEn: ingredient.inventoryItem.nameEn,
             nameAm: ingredient.inventoryItem.nameAm,
+            nameOm: ingredient.inventoryItem.nameOm,
             unit: ingredient.inventoryItem.unit,
             quantity: qty,
           })
@@ -233,6 +250,7 @@ export async function expectedUsageForPeriod(
       items: order.items.map((item) => ({
         nameEn: item.itemNameEn,
         nameAm: item.itemNameAm,
+        nameOm: item.itemNameOm,
         quantity: item.quantity,
       })),
       usage: [...usageMap.values()],
@@ -247,7 +265,7 @@ export async function getAssignmentsForPeriod(periodStart: Date, periodEnd: Date
   return prisma.stockAssignment.findMany({
     where: { periodStart, periodEnd },
     include: {
-      inventoryItem: { select: { id: true, nameEn: true, nameAm: true, unit: true, currentStock: true } },
+      inventoryItem: { select: { id: true, nameEn: true, nameAm: true, nameOm: true, unit: true, currentStock: true } },
       assignedBy: { select: { name: true } },
     },
     orderBy: { inventoryItem: { nameEn: 'asc' } },

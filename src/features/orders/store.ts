@@ -8,12 +8,21 @@ export interface CartItem {
   variantId?: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm?: string | null;
   variantNameEn?: string;
   variantNameAm?: string | null;
+  variantNameOm?: string | null;
   price: number;
   overridePrice?: number;
   quantity: number;
   note?: string;
+}
+
+/** The open bill this cart is adding a second course to. */
+export interface AppendTarget {
+  id: number;
+  orderNumber: string;
+  status: string;
 }
 
 interface CartStore {
@@ -22,6 +31,7 @@ interface CartStore {
   tableNumber: string | null;
   orderNote: string;
   discount: number;
+  appendTarget: AppendTarget | null;
 
   // Actions
   addItem: (item: Omit<CartItem, 'quantity'>) => void;
@@ -33,6 +43,7 @@ interface CartStore {
   setTableNumber: (table: string | null) => void;
   setOrderNote: (note: string) => void;
   setDiscount: (discount: number) => void;
+  setAppendTarget: (target: AppendTarget | null) => void;
 
   // Computed
   getSubtotal: () => number;
@@ -50,6 +61,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
   tableNumber: null,
   orderNote: '',
   discount: 0,
+  appendTarget: null,
 
   addItem: (item) =>
     set((state) => {
@@ -99,13 +111,24 @@ export const useCartStore = create<CartStore>((set, get) => ({
     })),
 
   clearCart: () =>
-    set({ items: [], tableNumber: null, orderNote: '', discount: 0 }),
+    set({ items: [], tableNumber: null, orderNote: '', discount: 0, appendTarget: null }),
 
-  setOrderType: (orderType) => set({ orderType }),
-  setTableNumber: (tableNumber) => set({ tableNumber }),
+  setOrderType: (orderType) =>
+    set((state) => ({
+      orderType,
+      appendTarget: orderType === 'TAKEOUT' ? null : state.appendTarget,
+    })),
+
+  setTableNumber: (tableNumber) =>
+    set((state) => ({
+      tableNumber,
+      appendTarget: tableNumber === state.tableNumber ? state.appendTarget : null,
+    })),
+
   setOrderNote: (orderNote) => set({ orderNote }),
   setDiscount: (discount) =>
     set({ discount: Math.max(roundMoney(discount), 0) }),
+  setAppendTarget: (appendTarget) => set({ appendTarget }),
 
   getSubtotal: () => {
     const { items } = get();

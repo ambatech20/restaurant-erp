@@ -92,7 +92,39 @@
     "ordersGoToKitchen": "ትዕዛዞች በቀጥታ ወደ ወጥ ቤት ይሄዳሉ",
     "selectTableFirst": "እባክዎ መጀመሪያ የጠረጴዛ ቁጥር ይምረጡ።",
     "sendOrderFailed": "ትዕዛዙን መላክ አልተሳካም። እባክዎ እንደገና ይሞክሩ።",
-    "orderMarkedServed": "ትዕዛዙ ቀርቧል ተብሎ ምልክት ተደርጓል!"
+    "orderMarkedServed": "ትዕዛዙ ቀርቧል ተብሎ ምልክት ተደርጓል!",
+    "addingToOrder": "ወደ ትዕዛዝ #{number} እየተጨመረ ነው",
+    "itemsAddedToOrder": "እቃዎች ወደ ትዕዛዝ #{number} ተጨምረዋል",
+    "openBillsForTable": "የጠረጴዛ {number} ክፍት ሂሳቦች",
+    "chooseOpenBill": "በዚህ ጠረጴዛ ላይ ሁለት ክፍት ሂሳቦች አሉ — የሚጨመሩበትን ይምረጡ።",
+    "selectBill": "ምረጥ",
+    "deselectBill": "ምርጫ አንሳ",
+    "openBill": "ክፍት ሂሳብ",
+    "price": "ዋጋ"
+  },
+  "posErrors": {
+    "NOT_AUTHORIZED": "ይህን ለማድረግ ፈቃድ የለዎትም።",
+    "NO_SHIFT": "ትዕዛዝ ከመውሰድዎ በፊት ፈረቃ ይጀምሩ።",
+    "INVALID_TYPE": "ይህ የትዕዛዝ ዓይነት አይገኝም።",
+    "TABLE_REQUIRED": "ለዚህ ሂሳብ ጠረጴዛ ይምረጡ።",
+    "EMPTY_ITEMS": "ቢያንስ አንድ እቃ ይጨምሩ።",
+    "INVALID_QUANTITY": "ብዛት ከዜሮ በላይ መሆን አለበት።",
+    "PRICE_OVERRIDE": "ዋጋ መቀየር የሚችለው ሥራ አስኪያጅ ብቻ ነው።",
+    "DISCOUNT": "ቅናሽ ማድረግ የሚችለው ሥራ አስኪያጅ ብቻ ነው።",
+    "INVALID_DISCOUNT": "ቅናሹ አዎንታዊ ቁጥር መሆን አለበት።",
+    "NOT_FOUND": "ይህ ትዕዛዝ ከእንግዲህ የለም።",
+    "CANCELLED": "ይህ ትዕዛዝ ተሰርዟል።",
+    "SETTLED": "ይህ ሂሳብ አስቀድሞ ተከፍሏል — አዲስ ትዕዛዝ ይጀምሩ።",
+    "CLOSED_SHIFT": "ይህ ሂሳብ የተዘጋ ፈረቃ ነው — አዲስ ትዕዛዝ ይጀምሩ።",
+    "SETTLED_REOPEN": "የተከፈሉ ትዕዛዞች እንደገና ሊከፈቱ አይችሉም።",
+    "ALREADY_PAID": "ይህ ትዕዛዝ አስቀድሞ ተከፍሏል።",
+    "TAB_CUSTOMER": "ይህ የዱቤ ሂሳብ ደንበኛ የለውም።",
+    "TABLE_HAS_OPEN_BILL": "ይህ ጠረጴዛ አስቀድሞ ክፍት ሂሳብ አለው — በዚያ ሂሳብ ላይ ይጨምሩ።",
+    "UNKNOWN_ITEM": "በዚህ ትዕዛዝ ውስጥ ያለ እቃ ከምናሌ ላይ የለም።",
+    "UNKNOWN_STATUS": "ይህ የትዕዛዝ ሁኔታ አይታወቅም።",
+    "UNKNOWN_ITEM_STATUS": "ይህ የእቃ ሁኔታ አይታወቅም።",
+    "USE_CANCEL": "ሂሳብ ለመሰረዝ የመሰረዝ ተግባርን ይጠቀሙ።",
+    "FAILED": "የተሳሳተ ነገር ተፈጥሯል። እንደገና ይሞክሩ።"
   },
   "kitchen": {
     "kitchenDisplay": "የወጥ ቤት ማሳያ",
@@ -137,7 +169,11 @@
     "cashier": "ገንዘብ ተቀባይ",
     "dateTime": "ቀን እና ሰዓት",
     "thankYou": "ስለመጡ እናመሰግናለን!",
-    "paymentComplete": "ክፍያ ተጠናቋል"
+    "paymentComplete": "ክፍያ ተጠናቋል",
+    "paidAmount": "የተከፈለ",
+    "verified": "ተረጋግጧል",
+    "declined": "ተቀባይነት አልያዘም",
+    "pendingVerification": "በመጠባበቅ ላይ"
   },
   "shift": {
     "currentShift": "የአሁኑ ፈረቃ",
@@ -166,7 +202,9 @@
     "addNotes": "ስለዚህ ፈረቃ ማስታወሻ ያስገቡ...",
     "overage": "ትርፍ",
     "shortage": "ጉድለት",
-    "balanced": "ሚዛናዊ"
+    "balanced": "ሚዛናዊ",
+    "open": "የተከፈተ",
+    "closed": "የተዘጋ"
   },
   "dashboard": {
     "dashboard": "ዳሽቦርድ",
@@ -183,6 +221,10 @@
     "completedOrders": "የተጠናቀቁ ትዕዛዞች"
   },
   "menu": {
+    "portionNameOm": "የመጠን ስም (ኦሮምኛ)",
+    "descriptionOm": "መግለጫ (ኦሮምኛ)",
+    "itemNameOm": "የዕቃ ስም (ኦሮምኛ)",
+    "categoryNameOm": "የምድብ ስም (ኦሮምኛ)",
     "menuManagement": "ምናሌ አስተዳደር",
     "categories": "ምድቦች",
     "items": "ንጥሎች",
@@ -231,6 +273,16 @@
     "filterByDate": "በቀን ያጣሩ",
     "filterByStaff": "በሰራተኛ ያጣሩ",
     "noOrders": "ትዕዛዞች አልተገኙም",
+    "noOrdersToday": "ዛሬ እስካሁን ትዕዛዝ የለም",
+    "orderNumber": "ትዕዛዝ ቁጥር",
+    "time": "ሰዓት",
+    "type": "ዓይነት",
+    "items": "እቃዎች",
+    "total": "ጠቅላላ",
+    "paymentLabel": "ክፍያ",
+    "staffLabel": "ሠራተኛ",
+    "itemsLabel": "እቃዎች፦",
+    "viewReceipt": "ደረሰኙን ይመልከቱ",
     "timeline": "የጊዜ መስመር",
     "paymentInfo": "የክፍያ መረጃ"
   },
@@ -261,11 +313,12 @@
     "inventory": "ክምችት",
     "settings": "ቅንብር",
     "reports": "ሪፖርቶች",
-    "integrations": "Integrations",
-    "reconciliation": "Reconciliation",
+    "integrations": "ውህደቶች",
+    "reconciliation": "የክምችት ማስታረቅ",
     "backToDashboard": "ወደ ዳሽቦርድ ተመለስ"
   },
   "employees": {
+    "nameOm": "ስም (ኦሮምኛ)",
     "title": "የሰራተኛ አስተዳደር",
     "addEmployee": "ሰራተኛ ጨምር",
     "editEmployee": "ሰራተኛ አስተካክል",
@@ -299,6 +352,7 @@
     "confirmDelete": "ይህን ሰራተኛ ማቦዘን ይፈልጋሉ?"
   },
   "inventory": {
+    "itemNameOm": "የዕቃ ስም (ኦሮምኛ)",
     "title": "የክምችት አስተዳደር",
     "rawMaterials": "ጥሬ ዕቃዎች",
     "miscItems": "ልዩ ልዩ ዕቃዎች",
@@ -338,6 +392,34 @@
       "bag": "ከረጢት",
       "bottle": "ጠርሙስ"
     }
+  },
+  "reports": {
+    "title": "ሪፖርቶች",
+    "subtitle": "የገቢና የአፈጻጸም ትንተና",
+    "exportImage": "ምስል አውጣ",
+    "exporting": "በመላክ ላይ...",
+    "exportCsv": "CSV አውጣ",
+    "refresh": "አድስ",
+    "loading": "ሪፖርት በመጫን ላይ...",
+    "daily": "ዕለታዊ",
+    "weekly": "ሳምንታዊ",
+    "monthly": "ወርሃዊ",
+    "selectDate": "ቀን ይምረጡ፦",
+    "totalRevenue": "ጠቅላላ ገቢ",
+    "totalOrders": "ጠቅላላ ትዕዛዞች",
+    "cash": "ጥሬ ገንዘብ",
+    "card": "ካርድ",
+    "mobile": "ሞባይል",
+    "avgOrder": "አማካይ ትዕዛዝ",
+    "revenueByHour": "በሰዓት ገቢ",
+    "topSelling": "ከፍተኛ የተሸጡ እቃዎች",
+    "weekRevenue": "የ7 ቀን ገቢ",
+    "avgDailyRevenue": "አማካይ ዕለታዊ ገቢ",
+    "dailyRevenue7": "ዕለታዊ ገቢ (ያለፉት 7 ቀናት)",
+    "monthlyRevenue": "ወርሃዊ ገቢ",
+    "topItemsMonth": "በዚህ ወር ከፍተኛ የተሸጡ እቃዎች (በገቢ)",
+    "showingDataFor": "የሚታየው መረጃ፦",
+    "noData": "ለዚህ ቀን መረጃ የለም"
   },
   "reconciliation": {
     "title": "የእቃ ማስታረቅ",

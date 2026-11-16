@@ -8,6 +8,7 @@ import Icon from '@/components/shared/Icon';
 export interface ReceiptLine {
   nameEn: string;
   nameAm: string | null;
+  nameOm?: string | null;
   qty: number;
   unitPrice: number;
   total: number;
@@ -26,6 +27,7 @@ export interface ReceiptData {
   createdAt: string;
   staffName: string;
   staffNameAm: string | null;
+  staffNameOm?: string | null;
   lines: ReceiptLine[];
   payment?: {
     method: string;
@@ -37,12 +39,6 @@ export interface ReceiptData {
   } | null;
 }
 
-const METHOD_LABELS: Record<string, { en: string; am: string }> = {
-  CASH: { en: 'Cash', am: 'ጥሩ ገንዘብ' },
-  CARD: { en: 'Card', am: 'ካርድ' },
-  MOBILE: { en: 'Mobile', am: 'ሞባይል' },
-};
-
 /**
  * Printable receipt. Rendered both on screen and (via `@media print`) on paper.
  * Keep the layout narrow so it looks right on a 80 mm thermal printer.
@@ -50,11 +46,14 @@ const METHOD_LABELS: Record<string, { en: string; am: string }> = {
 export function Receipt({ data }: { data: ReceiptData }) {
   const locale = useLocale();
   const t = useTranslations('payment');
+  const tp = useTranslations('pos');
+  const to = useTranslations('orders');
   const tc = useTranslations('common');
-  const am = locale === 'am';
   const taxRate = TAX_RATE * 100;
-  const method = data.payment
-    ? (METHOD_LABELS[data.payment.method] ?? { en: data.payment.method, am: data.payment.method })
+  const methodLabel = data.payment
+    ? (['CASH', 'CARD', 'MOBILE'].includes(data.payment.method)
+        ? tp(data.payment.method.toLowerCase() as 'cash' | 'card' | 'mobile')
+        : data.payment.method)
     : null;
 
   return (
@@ -65,13 +64,16 @@ export function Receipt({ data }: { data: ReceiptData }) {
       </div>
 
       <div className="receipt-meta">
-        <div><span>{t('receipt')}:</span> {t('receiptNumber', { number: data.orderNumber })}</div>
+        <div><span>{t('receipt')}:</span> #{data.orderNumber}</div>
         <div><span>{t('dateTime')}:</span> {formatDateTime(data.createdAt, locale)}</div>
-        <div><span>{t('cashier')}:</span> {getLocaleName(data.staffName, data.staffNameAm, locale)}</div>
         <div>
-          <span>{am ? 'ዓይነት' : 'Type'}:</span>{' '}
-          {am ? (data.type === 'DINE_IN' ? 'እዚህ መብላት' : 'ለመውሰድ') : data.type === 'DINE_IN' ? 'Dine In' : 'Takeout'}
-          {data.tableNumber ? ` · T${data.tableNumber}` : ''}
+          <span>{t('cashier')}:</span>{' '}
+          {getLocaleName(data.staffName, data.staffNameAm, locale, data.staffNameOm)}
+        </div>
+        <div>
+          <span>{to('type')}:</span>{' '}
+          {data.type === 'DINE_IN' ? tp('dineIn') : tp('takeout')}
+          {data.tableNumber ? ' · T' + data.tableNumber : ''}
         </div>
       </div>
 
@@ -81,16 +83,16 @@ export function Receipt({ data }: { data: ReceiptData }) {
         <thead>
           <tr>
             <th></th>
-            <th style={{ textAlign: 'right' }}>{am ? 'ብዛት' : 'Qty'}</th>
-            <th style={{ textAlign: 'right' }}>{am ? 'ዋጋ' : 'Price'}</th>
-            <th style={{ textAlign: 'right' }}>{am ? 'ጠቅላላ' : 'Total'}</th>
+            <th style={{ textAlign: 'right' }}>{tp('quantity')}</th>
+            <th style={{ textAlign: 'right' }}>{tp('price')}</th>
+            <th style={{ textAlign: 'right' }}>{tp('orderTotal')}</th>
           </tr>
         </thead>
         <tbody>
           {data.lines.map((line, i) => (
             <tr key={i}>
               <td className="receipt-item-name">
-                {getLocaleName(line.nameEn, line.nameAm, locale)}
+                {getLocaleName(line.nameEn, line.nameAm, locale, line.nameOm)}
                 {line.note && <span className="receipt-item-note">{line.note}</span>}
               </td>
               <td style={{ textAlign: 'right' }}>{line.qty}</td>
@@ -104,26 +106,27 @@ export function Receipt({ data }: { data: ReceiptData }) {
       <div className="receipt-divider" />
 
       <div className="receipt-totals">
-        <div><span>{am ? 'ንዑስ ጠቅላላ' : 'Subtotal'}</span><span>{formatPrice(data.subtotal, locale)}</span></div>
+        <div><span>{tp('subtotal')}</span><span>{formatPrice(data.subtotal, locale)}</span></div>
         {data.discount > 0 && (
-          <div><span>{am ? 'ቅናሽ' : 'Discount'}</span><span>−{formatPrice(data.discount, locale)}</span></div>
+          <div><span>{tp('discount')}</span><span>−{formatPrice(data.discount, locale)}</span></div>
         )}
-        <div><span>{am ? `ግብር (${taxRate}%)` : `VAT (${taxRate}%)`}</span><span>{formatPrice(data.taxAmount, locale)}</span></div>
-        <div className="receipt-grand"><span>{am ? 'ጠቅላላ' : 'TOTAL'}</span><span>{formatPrice(data.total, locale)}</span></div>
+        <div><span>{'VAT (' + taxRate + '%)'}</span><span>{formatPrice(data.taxAmount, locale)}</span></div>
+        <div className="receipt-grand"><span>{tp('orderTotal')}</span><span>{formatPrice(data.total, locale)}</span></div>
       </div>
 
-      {data.payment && method && (
+      {data.payment && methodLabel && (
         <>
           <div className="receipt-divider" />
           <div className="receipt-totals">
             <div>
-              <span>{am ? 'የተከፈለ' : 'Paid'} ({am ? method.am : method.en})</span>
+              <span>{t('paidAmount')} ({methodLabel})</span>
               <span>{formatPrice(data.payment.amountPaid, locale)}</span>
-            </div>            {data.payment.changeGiven > 0 && (
-              <div><span>{am ? 'ትእምር' : 'Change'}</span><span>{formatPrice(data.payment.changeGiven, locale)}</span></div>
+            </div>
+            {data.payment.changeGiven > 0 && (
+              <div><span>{t('change')}</span><span>{formatPrice(data.payment.changeGiven, locale)}</span></div>
             )}
             {data.payment.reference && (
-              <div><span>{am ? 'ማራገጫ' : 'Ref'}</span><span>{data.payment.reference}</span></div>
+              <div><span>{t('reference')}</span><span>{data.payment.reference}</span></div>
             )}
           </div>
           {data.payment.verificationStatus && (
@@ -150,10 +153,10 @@ export function Receipt({ data }: { data: ReceiptData }) {
                 </svg>
               )}
               {data.payment.verificationStatus === 'VERIFIED'
-                ? (am ? 'ተረጋግጧል' : 'Verified')
+                ? t('verified')
                 : data.payment.verificationStatus === 'DECLINED'
-                  ? (am ? 'ተቀባይነት አልያዘም' : 'Declined')
-                  : (am ? 'በመጠባበቅ ላይ' : 'Pending')}
+                  ? t('declined')
+                  : t('pendingVerification')}
             </div>
           )}
         </>

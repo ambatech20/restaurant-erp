@@ -23,8 +23,8 @@ const notoEthiopic = Noto_Sans_Ethiopic({
 
 export const metadata: Metadata = {
   title: 'Warka Dine | Restaurant POS System',
-  description: 'Modern restaurant and cafe management POS system with Amharic and English support. Order taking, kitchen display, payments, and staff management.',
-  keywords: ['restaurant', 'POS', 'point of sale', 'Ethiopian', 'Amharic', 'cafe', 'kitchen display', 'order management'],
+  description: 'Modern restaurant and cafe management POS system with Amharic, Afaan Oromoo and English support. Order taking, kitchen display, payments, and staff management.',
+  keywords: ['restaurant', 'POS', 'point of sale', 'Ethiopian', 'Amharic', 'Afaan Oromoo', 'Oromo', 'cafe', 'kitchen display', 'order management'],
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [

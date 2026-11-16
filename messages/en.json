@@ -92,7 +92,39 @@
     "ordersGoToKitchen": "Orders go directly to the kitchen",
     "selectTableFirst": "Please select a table number first.",
     "sendOrderFailed": "Failed to send order. Please try again.",
-    "orderMarkedServed": "Order marked as served!"
+    "orderMarkedServed": "Order marked as served!",
+    "addingToOrder": "Adding to order #{number}",
+    "itemsAddedToOrder": "Items added to order #{number}",
+    "openBillsForTable": "Open bills for table {number}",
+    "chooseOpenBill": "Two bills are open on this table — choose the one to add to.",
+    "selectBill": "Select",
+    "deselectBill": "Deselect",
+    "openBill": "Open bill",
+    "price": "Price"
+  },
+  "posErrors": {
+    "NOT_AUTHORIZED": "You are not allowed to do this.",
+    "NO_SHIFT": "Start a shift before taking orders.",
+    "INVALID_TYPE": "That order type is not available.",
+    "TABLE_REQUIRED": "Select a table for this bill.",
+    "EMPTY_ITEMS": "Add at least one item.",
+    "INVALID_QUANTITY": "Quantities must be greater than zero.",
+    "PRICE_OVERRIDE": "Only a manager can change a price.",
+    "DISCOUNT": "Only a manager can apply a discount.",
+    "INVALID_DISCOUNT": "The discount must be a positive amount.",
+    "NOT_FOUND": "That order no longer exists.",
+    "CANCELLED": "This order was cancelled.",
+    "SETTLED": "This bill is already settled — start a new order.",
+    "CLOSED_SHIFT": "That bill belongs to a closed shift — start a new order.",
+    "SETTLED_REOPEN": "Settled orders cannot be reopened.",
+    "ALREADY_PAID": "This order has already been paid.",
+    "TAB_CUSTOMER": "This credit bill has no customer attached.",
+    "TABLE_HAS_OPEN_BILL": "This table already has an open bill — add to that bill.",
+    "UNKNOWN_ITEM": "An item in this order is no longer on the menu.",
+    "UNKNOWN_STATUS": "That order status is not recognized.",
+    "UNKNOWN_ITEM_STATUS": "That item status is not recognized.",
+    "USE_CANCEL": "Use the cancel action to cancel a bill.",
+    "FAILED": "Something went wrong. Try again."
   },
   "kitchen": {
     "kitchenDisplay": "Kitchen Display",
@@ -137,7 +169,11 @@
     "cashier": "Cashier",
     "dateTime": "Date & Time",
     "thankYou": "Thank you for dining with us!",
-    "paymentComplete": "Payment Complete"
+    "paymentComplete": "Payment Complete",
+    "paidAmount": "Paid",
+    "verified": "Verified",
+    "declined": "Declined",
+    "pendingVerification": "Pending"
   },
   "shift": {
     "currentShift": "Current Shift",
@@ -166,7 +202,9 @@
     "addNotes": "Add notes about this shift...",
     "overage": "Overage",
     "shortage": "Shortage",
-    "balanced": "Balanced"
+    "balanced": "Balanced",
+    "open": "Open",
+    "closed": "Closed"
   },
   "dashboard": {
     "dashboard": "Dashboard",
@@ -183,6 +221,10 @@
     "completedOrders": "Completed Orders"
   },
   "menu": {
+    "portionNameOm": "Portion Name (Oromo)",
+    "descriptionOm": "Description (Oromo)",
+    "itemNameOm": "Item Name (Oromo)",
+    "categoryNameOm": "Category Name (Oromo)",
     "menuManagement": "Menu Management",
     "categories": "Categories",
     "items": "Items",
@@ -231,6 +273,16 @@
     "filterByDate": "Filter by Date",
     "filterByStaff": "Filter by Staff",
     "noOrders": "No orders found",
+    "noOrdersToday": "No orders yet today",
+    "orderNumber": "Order #",
+    "time": "Time",
+    "type": "Type",
+    "items": "Items",
+    "total": "Total",
+    "paymentLabel": "Payment",
+    "staffLabel": "Staff",
+    "itemsLabel": "Items:",
+    "viewReceipt": "View Receipt",
     "timeline": "Timeline",
     "paymentInfo": "Payment Information"
   },
@@ -266,6 +318,7 @@
     "backToDashboard": "Back to Dashboard"
   },
   "employees": {
+    "nameOm": "Name (Oromo)",
     "title": "Employee Management",
     "addEmployee": "Add Employee",
     "editEmployee": "Edit Employee",
@@ -299,6 +352,7 @@
     "confirmDelete": "Are you sure you want to deactivate this employee?"
   },
   "inventory": {
+    "itemNameOm": "Item Name (Oromo)",
     "title": "Inventory Management",
     "rawMaterials": "Raw Materials",
     "miscItems": "Miscellaneous",
@@ -338,6 +392,34 @@
       "bag": "Bag",
       "bottle": "Bottle"
     }
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Revenue and performance analytics",
+    "exportImage": "Export Image",
+    "exporting": "Exporting...",
+    "exportCsv": "Export CSV",
+    "refresh": "Refresh",
+    "loading": "Loading report...",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "selectDate": "Select Date:",
+    "totalRevenue": "Total Revenue",
+    "totalOrders": "Total Orders",
+    "cash": "Cash",
+    "card": "Card",
+    "mobile": "Mobile",
+    "avgOrder": "Avg Order",
+    "revenueByHour": "Revenue by Hour",
+    "topSelling": "Top Selling Items",
+    "weekRevenue": "7-Day Revenue",
+    "avgDailyRevenue": "Avg Daily Revenue",
+    "dailyRevenue7": "Daily Revenue (Last 7 Days)",
+    "monthlyRevenue": "Monthly Revenue",
+    "topItemsMonth": "Top Items This Month (by Revenue)",
+    "showingDataFor": "Showing data for:",
+    "noData": "No data for this date"
   },
   "reconciliation": {
     "title": "Inventory Reconciliation",

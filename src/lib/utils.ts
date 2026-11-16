@@ -21,12 +21,19 @@ export function formatCurrencyAm(amount: number): string {
   return `${amount.toFixed(2)} ብር`;
 }
 
+export function formatCurrencyOm(amount: number): string {
+  return `${amount.toFixed(2)} Birrii`;
+}
+
 /**
  * Format currency based on locale
  */
 export function formatPrice(amount: number, locale: string = 'en'): string {
   if (locale === 'am') {
     return formatCurrencyAm(amount);
+  }
+  if (locale === 'om') {
+    return formatCurrencyOm(amount);
   }
   return formatCurrency(amount);
 }
@@ -67,11 +74,21 @@ export function getMinutesElapsed(date: Date | string): number {
 }
 
 /**
+ * BCP-47 tag for date/time formatting. Afaan Oromoo is fully supported by the
+ * runtime's ICU data (month names, numbering, relative time).
+ */
+export function intlLocale(locale: string): string {
+  if (locale === 'am') return 'am-ET';
+  if (locale === 'om') return 'om-ET';
+  return 'en-US';
+}
+
+/**
  * Format a date as a human-readable string
  */
 export function formatDate(date: Date | string, locale: string = 'en'): string {
   const d = new Date(date);
-  return d.toLocaleDateString(locale === 'am' ? 'am-ET' : 'en-US', {
+  return d.toLocaleDateString(intlLocale(locale), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -83,7 +100,7 @@ export function formatDate(date: Date | string, locale: string = 'en'): string {
  */
 export function formatDateTime(date: Date | string, locale: string = 'en'): string {
   const d = new Date(date);
-  return d.toLocaleString(locale === 'am' ? 'am-ET' : 'en-US', {
+  return d.toLocaleString(intlLocale(locale), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -104,11 +121,21 @@ export function formatTime(date: Date | string): string {
 }
 
 /**
- * Get the bilingual name based on locale
+ * Get the localized name.
+ *
+ * Fallback order for Afaan Oromoo is Oromo → English → Amharic: both Oromo
+ * and English are Latin-script, so an untranslated dish still reads correctly
+ * for a Qubee reader. Amharic falls back to English as it always has.
  */
-export function getLocaleName(nameEn: string, nameAm: string | null | undefined, locale: string = 'en'): string {
-  if (locale === 'am' && nameAm) return nameAm;
-  return nameEn;
+export function getLocaleName(
+  nameEn: string,
+  nameAm: string | null | undefined,
+  locale: string = 'en',
+  nameOm?: string | null,
+): string {
+  if (locale === 'am') return nameAm?.trim() || nameEn;
+  if (locale === 'om') return nameOm?.trim() || nameEn || nameAm || '';
+  return nameEn || nameAm || '';
 }
 
 /**
@@ -151,20 +178,20 @@ export function getStatusBadgeClass(status: string): string {
 /**
  * Staff role display names
  */
-export const ROLE_LABELS: Record<string, { en: string; am: string }> = {
-  ADMIN: { en: 'Admin', am: 'አድሚን' },
-  MANAGER: { en: 'Manager', am: 'ሥራ አስኪያጅ' },
-  CASHIER: { en: 'Cashier', am: 'ገንዘብ ተቀባይ' },
-  KITCHEN: { en: 'Kitchen', am: 'ወጥ ቤት' },
-  WAITER: { en: 'Waiter', am: 'አስተናጋጅ' },
+export const ROLE_LABELS: Record<string, { en: string; am: string; om: string }> = {
+  ADMIN: { en: 'Admin', am: 'አድሚን', om: 'Bulchaa ol\'aanaa' },
+  MANAGER: { en: 'Manager', am: 'ሥራ አስኪያጅ', om: 'Bulchaa' },
+  CASHIER: { en: 'Cashier', am: 'ገንዘብ ተቀባይ', om: 'Kaffaltii fudhaa' },
+  KITCHEN: { en: 'Kitchen', am: 'ወጥ ቤት', om: 'Jikoo' },
+  WAITER: { en: 'Waiter', am: 'አስተናጋጅ', om: 'Tajaajilaa' },
 };
 
 /**
  * Order type labels
  */
-export const ORDER_TYPE_LABELS: Record<string, { en: string; am: string }> = {
-  DINE_IN: { en: 'Dine In', am: 'እዚህ መብላት' },
-  TAKEOUT: { en: 'Takeout', am: 'ለመውሰድ' },
+export const ORDER_TYPE_LABELS: Record<string, { en: string; am: string; om: string }> = {
+  DINE_IN: { en: 'Dine In', am: 'እዚህ መብላት', om: 'Asitti nyaachuuf' },
+  TAKEOUT: { en: 'Takeout', am: 'ለመውሰድ', om: 'Fudhachuuf' },
 };
 
 /**

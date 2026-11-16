@@ -21,6 +21,7 @@ interface IngredientRow {
   inventoryItemId: number;
   stockNameEn: string;
   stockNameAm: string | null;
+  stockNameOm: string | null;
   unit: string;
   quantity: number;
   yieldStockQuantity: number | null;
@@ -33,7 +34,8 @@ interface MenuRow {
   id: number;
   nameEn: string;
   nameAm: string | null;
-  category: { id: number; nameEn: string; nameAm: string | null };
+  nameOm: string | null;
+  category: { id: number; nameEn: string; nameAm: string | null; nameOm: string | null };
   ingredients: IngredientRow[];
 }
 
@@ -41,6 +43,7 @@ interface InventoryOption {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   unit: string;
   currentStock: number;
 }
@@ -49,6 +52,7 @@ interface StockRow {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   unit: string;
   currentStock: number;
   tracked: boolean;
@@ -61,6 +65,7 @@ interface SettlementRow {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   unit: string;
   assigned: number;
   expected: number;
@@ -71,6 +76,7 @@ interface UsageLine {
   inventoryItemId: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   unit: string;
   quantity: number;
 }
@@ -86,7 +92,7 @@ interface SettlementOrder {
   deliveredAt: string | Date | null;
   staffName: string | null;
   kitchenStatus: string | null;
-  items: { nameEn: string; nameAm: string | null; quantity: number }[];
+  items: { nameEn: string; nameAm: string | null; nameOm: string | null; quantity: number }[];
   usage: UsageLine[];
 }
 
@@ -146,7 +152,7 @@ function computePeriod(
 
 export default function ReconciliationPage() {
   const t = useTranslations('reconciliation');
-  const shortName = (en: string, am: string | null) => (getLocaleName(en, am, locale) || '').trim().split(/\s+/).pop() || getLocaleName(en, am, locale);
+  const shortName = (en: string, am: string | null, om?: string | null) => (getLocaleName(en, am, locale, om) || '').trim();
   const locale = useLocale();
 
   const [tab, setTab] = useState<Tab>('recipes');
@@ -443,9 +449,9 @@ export default function ReconciliationPage() {
               onClick={() => selectMenu(menu.id)}
             >
               <span style={{ display: 'grid', gap: 2 }}>
-                <span>{shortName(menu.nameEn, menu.nameAm)}</span>
+                <span>{shortName(menu.nameEn, menu.nameAm, menu.nameOm)}</span>
                 <span style={{ fontSize: 11, opacity: 0.75 }}>
-                  {shortName(menu.category.nameEn, menu.category.nameAm)}
+                  {shortName(menu.category.nameEn, menu.category.nameAm, menu.category.nameOm)}
                   {menu.ingredients.length > 0 ? ` · ${menu.ingredients.length} ${t('recipes.existing')}` : ''}
                 </span>
               </span>
@@ -464,9 +470,9 @@ export default function ReconciliationPage() {
           </div>
         ) : (
           <>
-            <div className="page-title" style={{ fontSize: '1.15rem' }}>{shortName(selectedMenu.nameEn, selectedMenu.nameAm)}</div>
+            <div className="page-title" style={{ fontSize: '1.15rem' }}>{shortName(selectedMenu.nameEn, selectedMenu.nameAm, selectedMenu.nameOm)}</div>
             <div className="text-muted" style={{ fontSize: 12, marginBottom: 'var(--space-4)' }}>
-              {shortName(selectedMenu.category.nameEn, selectedMenu.category.nameAm)} · {t('recipes.intro')}
+              {shortName(selectedMenu.category.nameEn, selectedMenu.category.nameAm, selectedMenu.category.nameOm)} · {t('recipes.intro')}
             </div>
 
             <div className="section-title" style={{ marginBottom: 'var(--space-2)' }}>{t('recipes.existing')}</div>
@@ -489,10 +495,10 @@ export default function ReconciliationPage() {
                     }}
                   >
                     <div style={{ display: 'grid', gap: 2 }}>
-                      <span style={{ fontWeight: 600 }}>{shortName(ing.stockNameEn, ing.stockNameAm)}</span>
+                      <span style={{ fontWeight: 600 }}>{shortName(ing.stockNameEn, ing.stockNameAm, ing.stockNameOm)}</span>
                       <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         {ing.yieldStockQuantity && ing.yieldUnits
-                          ? `${ing.yieldStockQuantity} ${ing.unit} → ${ing.yieldUnits} × ${shortName(selectedMenu.nameEn, selectedMenu.nameAm)}`
+                          ? `${ing.yieldStockQuantity} ${ing.unit} → ${ing.yieldUnits} × ${shortName(selectedMenu.nameEn, selectedMenu.nameAm, selectedMenu.nameOm)}`
                           : `${ing.perUnit} ${ing.unit} / ${t('recipes.perUnit')}`}
                         {' · '}
                         {ing.exactPerUnit.toFixed(2)} {ing.unit} / {t('recipes.perUnit')}
@@ -522,7 +528,7 @@ export default function ReconciliationPage() {
                   <option value="">{t('common.none')}</option>
                   {inventoryItems.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {shortName(item.nameEn, item.nameAm)} ({item.unit}) · {item.currentStock} {item.unit}
+                      {shortName(item.nameEn, item.nameAm, item.nameOm)} ({item.unit}) · {item.currentStock} {item.unit}
                     </option>
                   ))}
                 </select>
@@ -532,7 +538,7 @@ export default function ReconciliationPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--accent-gold)' }}>
                   <span>
                     {t('recipes.editing')}
-                    {selectedStock ? `: ${shortName(selectedStock.nameEn, selectedStock.nameAm)}` : ''}
+                    {selectedStock ? `: ${shortName(selectedStock.nameEn, selectedStock.nameAm, selectedStock.nameOm)}` : ''}
                   </span>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEdit}>
                     {t('recipes.cancel')}
@@ -641,7 +647,7 @@ export default function ReconciliationPage() {
                 {board.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{shortName(item.nameEn, item.nameAm)}</div>
+                      <div style={{ fontWeight: 600 }}>{shortName(item.nameEn, item.nameAm, item.nameOm)}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.unit}</div>
                     </td>
                     <td style={{ fontVariantNumeric: 'tabular-nums' }}>{item.currentStock} {item.unit}</td>
@@ -745,13 +751,13 @@ export default function ReconciliationPage() {
                     return (
                       <tr key={row.id}>
                         <td>
-                          <div style={{ fontWeight: 600 }}>{shortName(row.nameEn, row.nameAm)}</div>
+                          <div style={{ fontWeight: 600 }}>{shortName(row.nameEn, row.nameAm, row.nameOm)}</div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{row.unit}</div>
                         </td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{row.assigned} {row.unit}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{row.expected} {row.unit}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round(row.assigned * 100) / 100} {row.unit}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round(row.expected * 100) / 100} {row.unit}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums', color: row.remaining < 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
-                          {row.remaining} {row.unit}
+                          {Math.round(row.remaining * 100) / 100} {row.unit}
                         </td>
                         <td><span className={`badge ${status.cls}`}>{status.label}</span></td>
                       </tr>
@@ -812,7 +818,7 @@ export default function ReconciliationPage() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 'var(--space-2)' }}>
                     {order.items.map((item, idx) => (
                       <span key={`${order.id}-item-${idx}`} className="badge badge-preparing">
-                        {item.quantity} × {shortName(item.nameEn, item.nameAm)}
+                        {item.quantity} × {shortName(item.nameEn, item.nameAm, item.nameOm)}
                       </span>
                     ))}
                   </div>
@@ -833,7 +839,7 @@ export default function ReconciliationPage() {
                             fontWeight: 600,
                           }}
                         >
-                          {line.quantity} {line.unit} {shortName(line.nameEn, line.nameAm)}
+                          {Math.round(line.quantity * 100) / 100} {line.unit} {shortName(line.nameEn, line.nameAm, line.nameOm)}
                         </span>
                       ))
                     )}
@@ -859,6 +865,7 @@ export default function ReconciliationPage() {
       </div>
 
       <div
+        className="recon-tabs"
         style={{
           display: 'flex',
           gap: 6,

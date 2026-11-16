@@ -27,6 +27,13 @@ export default function PaymentModal({ orderId, orderNumber, tableNumber, total,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  // Held until the receipt is dismissed: the caller closes this modal on
+  // completion, which would otherwise unmount the receipt before it is seen.
+  const [pendingComplete, setPendingComplete] = useState<{
+    method: string;
+    amountPaid: number;
+    change: number;
+  } | null>(null);
   const [pcheckMode, setPcheckMode] = useState(false);
 
   const amountNum = parseFloat(amount) || 0;
@@ -70,9 +77,11 @@ export default function PaymentModal({ orderId, orderNumber, tableNumber, total,
         createdAt: o.createdAt.toISOString(),
         staffName: o.staff?.name ?? '',
         staffNameAm: o.staff?.nameAm ?? null,
+        staffNameOm: o.staff?.nameOm ?? null,
         lines: (o.items ?? []).map((i) => ({
           nameEn: i.itemNameEn ?? '',
           nameAm: i.itemNameAm ?? null,
+          nameOm: i.itemNameOm ?? null,
           qty: i.quantity,
           unitPrice: i.unitPrice,
           total: i.totalPrice,
@@ -87,7 +96,7 @@ export default function PaymentModal({ orderId, orderNumber, tableNumber, total,
           verificationStatus: p.verificationStatus ?? null,
         },
       });
-      onComplete({ method, amountPaid: paid, change: method === 'CASH' ? Math.max(0, paid - total) : 0 });
+      setPendingComplete({ method, amountPaid: paid, change: method === 'CASH' ? Math.max(0, paid - total) : 0 });
     } else {
       // Never fail silently — the cashier needs to know why payment was rejected.
       setError(result.error);
@@ -99,7 +108,15 @@ export default function PaymentModal({ orderId, orderNumber, tableNumber, total,
   const roundUp = Math.ceil(total / 10) * 10;
 
   if (receipt) {
-    return <ReceiptModal data={receipt} onClose={onClose} />;
+    return (
+      <ReceiptModal
+        data={receipt}
+        onClose={() => {
+          if (pendingComplete) onComplete(pendingComplete);
+          onClose();
+        }}
+      />
+    );
   }
 
   if (pcheckMode) {
@@ -153,9 +170,11 @@ export default function PaymentModal({ orderId, orderNumber, tableNumber, total,
         createdAt: o.createdAt.toISOString(),
         staffName: o.staff?.name ?? '',
         staffNameAm: o.staff?.nameAm ?? null,
+        staffNameOm: o.staff?.nameOm ?? null,
         lines: (o.items ?? []).map((i) => ({
           nameEn: i.itemNameEn ?? '',
           nameAm: i.itemNameAm ?? null,
+          nameOm: i.itemNameOm ?? null,
           qty: i.quantity,
           unitPrice: i.unitPrice,
           total: i.totalPrice,
@@ -170,7 +189,7 @@ export default function PaymentModal({ orderId, orderNumber, tableNumber, total,
           verificationStatus: p.verificationStatus ?? null,
         },
       });
-      onComplete({ method: 'MOBILE', amountPaid: total, change: 0 });
+      setPendingComplete({ method: 'MOBILE', amountPaid: total, change: 0 });
     } else {
       setError(result.error);
     }

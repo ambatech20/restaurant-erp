@@ -30,6 +30,7 @@ export async function getInventoryItems(category?: string) {
 export async function createInventoryItem(data: {
   nameEn: string;
   nameAm?: string;
+  nameOm?: string;
   category: string;
   unit: string;
   currentStock?: number;
@@ -54,6 +55,7 @@ export async function updateInventoryItem(
   data: {
     nameEn?: string;
     nameAm?: string;
+    nameOm?: string;
     category?: string;
     unit?: string;
     unitCost?: number;

@@ -3,6 +3,8 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { useCartStore } from '@/features/orders/store';
 import { getLocaleName, formatPrice } from '@/lib/utils';
+import { shortOrderNumber, type OpenBillOption } from '@/features/orders/openBills';
+import OpenBillPicker from '@/components/pos/OpenBillPicker';
 import Icon from '@/components/shared/Icon';
 
 interface OrderPanelProps {
@@ -10,9 +12,23 @@ interface OrderPanelProps {
   onPay?: () => void;
   loading?: boolean;
   isWaiter?: boolean;
+  openBills?: OpenBillOption[];
+  openBillsLoading?: boolean;
+  onSelectOpenBill?: (bill: OpenBillOption | null) => void;
+  sheetOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPanelProps) {
+export default function OrderPanel({
+  onPlaceOrder,
+  loading,
+  isWaiter,
+  openBills = [],
+  openBillsLoading = false,
+  onSelectOpenBill,
+  sheetOpen,
+  onClose,
+}: OrderPanelProps) {
   const t = useTranslations('pos');
   const tc = useTranslations('common');
   const locale = useLocale();
@@ -20,8 +36,10 @@ export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPan
   const items = useCartStore((s) => s.items);
   const orderType = useCartStore((s) => s.orderType);
   const tableNumber = useCartStore((s) => s.tableNumber);
+  const appendTarget = useCartStore((s) => s.appendTarget);
   const setOrderType = useCartStore((s) => s.setOrderType);
   const setTableNumber = useCartStore((s) => s.setTableNumber);
+  const setAppendTarget = useCartStore((s) => s.setAppendTarget);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
@@ -29,7 +47,7 @@ export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPan
   const tables = Array.from({ length: 20 }, (_, i) => String(i + 1));
 
   return (
-    <div className="pos-order-panel">
+    <div className={`pos-order-panel ${sheetOpen ? 'open' : ''}`}>
       {/* Order Type Toggle */}
       <div style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', gap: 'var(--space-2)', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', padding: '3px' }}>
@@ -91,9 +109,53 @@ export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPan
                 </option>
               ))}
             </select>
+
+            {tableNumber && (
+              <OpenBillPicker
+                tableNumber={tableNumber}
+                bills={openBills}
+                selectedId={appendTarget?.id ?? null}
+                loading={openBillsLoading}
+                onSelect={(bill) => {
+                  setAppendTarget(bill);
+                  onSelectOpenBill?.(bill);
+                }}
+              />
+            )}
           </div>
         )}
       </div>
+
+      {/* Append banner: this cart is a second course on an existing bill. */}
+      {appendTarget && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-2)',
+            padding: 'var(--space-2) var(--space-4)',
+            background: 'var(--success-glow)',
+            borderBottom: '1px solid var(--border)',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: 'var(--success)',
+          }}
+        >
+          <Icon name="plus" size={14} />
+          <span style={{ flex: 1 }}>
+            {t('addingToOrder', { number: shortOrderNumber(appendTarget.orderNumber) })}
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            aria-label={t('deselectBill')}
+            onClick={() => setAppendTarget(null)}
+            style={{ minHeight: '24px', minWidth: '24px', color: 'var(--text-muted)' }}
+          >
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Order Header */}
       <div style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid var(--border)' }}>
@@ -106,11 +168,16 @@ export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPan
               </span>
             )}
           </h3>
-          {items.length > 0 && (
-            <button className="btn btn-ghost btn-sm" onClick={clearCart} style={{ color: 'var(--danger)', fontSize: '0.75rem' }}>
-              {t('clearOrder')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+            {items.length > 0 && (
+              <button className="btn btn-ghost btn-sm" onClick={clearCart} style={{ color: 'var(--danger)', fontSize: '0.75rem' }}>
+                {t('clearOrder')}
+              </button>
+            )}
+            <button className="btn btn-ghost btn-icon order-sheet-close" onClick={onClose} aria-label={tc('close')}>
+              <Icon name="x" size={20} />
             </button>
-          )}
+          </div>
         </div>
       </div>
 
@@ -129,10 +196,10 @@ export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPan
             <div key={uniqueKey} className="order-item">
               <div className="order-item-details">
                 <div className="order-item-name">
-                  {getLocaleName(item.nameEn, item.nameAm, locale)}
+                  {getLocaleName(item.nameEn, item.nameAm, locale, item.nameOm)}
                   {item.variantId && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
-                      ({getLocaleName(item.variantNameEn || '', item.variantNameAm || null, locale)})
+                      ({getLocaleName(item.variantNameEn || '', item.variantNameAm || null, locale, item.variantNameOm || null)})
                     </span>
                   )}
                 </div>
@@ -143,7 +210,7 @@ export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPan
                 <span className="qty-value">{item.quantity}</span>
                 <button className="qty-btn" onClick={() => updateQuantity(item.menuItemId, item.variantId, item.quantity + 1)}>+</button>
               </div>
-              <div style={{ minWidth: '70px', textAlign: 'right', fontWeight: 600, fontSize: '0.875rem' }}>
+              <div style={{ minWidth: '70px', textAlign: 'right', fontWeight: 600, fontSize: '0.875rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {formatPrice(item.price * item.quantity, locale)}
               </div>
               <button
@@ -167,7 +234,7 @@ export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPan
             onClick={onPlaceOrder}
             style={{ flex: 1, background: 'var(--accent-gold)' }}
           >
-            {loading ? tc('loading') : (orderType === 'DINE_IN' && !tableNumber && items.length > 0) ? (<><Icon name="alertTriangle" size={18} /> Select a Table</>) : (<><Icon name="kitchen" size={18} /> {t('sendToKitchen')}</>)}
+            {loading ? tc('loading') : (orderType === 'DINE_IN' && !tableNumber && items.length > 0) ? (<><Icon name="alertTriangle" size={18} /> {t('selectTable')}</>) : appendTarget ? (<><Icon name="plus" size={18} /> {t('addToOrder')}</>) : (<><Icon name="kitchen" size={18} /> {t('sendToKitchen')}</>)}
           </button>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1 }}>
@@ -178,7 +245,7 @@ export default function OrderPanel({ onPlaceOrder, loading, isWaiter }: OrderPan
               onClick={onPlaceOrder}
               style={{ flex: 1, background: 'var(--accent-gold)' }}
             >
-              {loading ? tc('loading') : (orderType === 'DINE_IN' && !tableNumber && items.length > 0) ? (<><Icon name="alertTriangle" size={18} /> Select a Table</>) : (<><Icon name="kitchen" size={18} /> {t('sendToKitchen')}</>)}
+              {loading ? tc('loading') : (orderType === 'DINE_IN' && !tableNumber && items.length > 0) ? (<><Icon name="alertTriangle" size={18} /> {t('selectTable')}</>) : appendTarget ? (<><Icon name="plus" size={18} /> {t('addToOrder')}</>) : (<><Icon name="kitchen" size={18} /> {t('sendToKitchen')}</>)}
             </button>
             {/* Payment is settled later from the Unpaid list. */}
           </div>

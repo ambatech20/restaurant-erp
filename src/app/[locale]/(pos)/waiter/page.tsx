@@ -1,15 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import CategoryTabs from '@/components/pos/CategoryTabs';
 import MenuGrid from '@/components/pos/MenuGrid';
 import OrderPanel from '@/components/pos/OrderPanel';
 import { getCategories, getMenuItems } from '@/features/menu/actions';
-import { createOrder, getReadyOrders, updateOrderStatus } from '@/features/orders/actions';
+import {
+  addItemsToOrder,
+  createOrder,
+  getOpenBillsForTable,
+  getReadyOrders,
+  updateOrderStatus,
+} from '@/features/orders/actions';
 import { useCartStore } from '@/features/orders/store';
+import { resolveAppendTarget, shortOrderNumber, type OpenBillOption } from '@/features/orders/openBills';
+import { newClientKey } from '@/lib/clientKey';
 import { useSocketEmit, useSocketEvent } from '@/hooks/useSocketEvent';
-import { getLocaleName } from '@/lib/utils';
+import { formatPrice, getLocaleName } from '@/lib/utils';
 import Icon from '@/components/shared/Icon';
 import type { OrderView } from '@/features/orders/types';
 import { useAsyncEffect } from '@/hooks/useAsyncEffect';
@@ -46,14 +54,43 @@ export default function WaiterPage() {
   const [activeView, setActiveView] = useState<'MENU' | 'READY'>('MENU');
   const [readyOrders, setReadyOrders] = useState<OrderView[]>([]);
   const [loadingReady, setLoadingReady] = useState(false);
+  const [openBills, setOpenBills] = useState<OpenBillOption[]>([]);
+  const [loadingOpenBills, setLoadingOpenBills] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const items = useCartStore((s) => s.items);
   const orderType = useCartStore((s) => s.orderType);
   const tableNumber = useCartStore((s) => s.tableNumber);
   const orderNote = useCartStore((s) => s.orderNote);
   const discount = useCartStore((s) => s.discount);
+  const getTotal = useCartStore((s) => s.getTotal);
   const clearCart = useCartStore((s) => s.clearCart);
+  const setAppendTarget = useCartStore((s) => s.setAppendTarget);
   const emit = useSocketEmit();
+
+  const loadOpenBills = useCallback(
+    async (table: string, clearTarget = false) => {
+      // The table may have changed (or the cart cleared) while the request was
+      // in flight — never attach a bill to a cart that moved on.
+      if (useCartStore.getState().tableNumber !== table) return;
+      const result = await getOpenBillsForTable(table);
+      if (useCartStore.getState().tableNumber !== table) return;
+      if (result.success) {
+        const bills = result.bills as OpenBillOption[];
+        setOpenBills(bills);
+        setAppendTarget(
+          clearTarget ? null : resolveAppendTarget(bills, useCartStore.getState().appendTarget),
+        );
+      }
+      setLoadingOpenBills(false);
+    },
+    [setAppendTarget],
+  );
+
+  useAsyncEffect(() => {
+    if (orderType !== 'DINE_IN' || !tableNumber) return;
+    loadOpenBills(tableNumber);
+  }, [orderType, tableNumber, loadOpenBills]);
 
   const fetchReadyOrders = async () => {
     setLoadingReady(true);
@@ -78,14 +115,22 @@ export default function WaiterPage() {
     fetchReadyOrders();
   }, []);
 
-  useSocketEvent('order:status-update', fetchReadyOrders);
+  useSocketEvent('order:new', () => {
+    fetchReadyOrders();
+    if (tableNumber) loadOpenBills(tableNumber);
+  });
+  useSocketEvent('order:status-update', () => {
+    fetchReadyOrders();
+    if (tableNumber) loadOpenBills(tableNumber);
+  });
 
   // Filter items by category
   const filteredItems = activeCategory
     ? menuItems.filter((item: MenuItem & { categoryId?: number }) => item.categoryId === activeCategory)
     : menuItems;
 
-  // Waiter sends order directly to kitchen (no payment step)
+  // Waiter sends order directly to kitchen (no payment step). With an open
+  // bill on the table the same button adds the course to that bill.
   const handleSendToKitchen = async () => {
     if (items.length === 0) return;
     if (orderType === 'DINE_IN' && !tableNumber) {
@@ -95,29 +140,53 @@ export default function WaiterPage() {
     }
     setLoading(true);
 
+    const payloadItems = items.map((item) => ({
+      menuItemId: item.menuItemId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      note: item.note,
+      overridePrice: item.overridePrice,
+    }));
+    const target = useCartStore.getState().appendTarget;
+
+    if (target) {
+      const result = await addItemsToOrder(target.id, payloadItems, newClientKey());
+      if (result.success) {
+        emit('order:new', { orderId: target.id, tableNumber, appended: true });
+        emit('order:status-update', { orderId: target.id, status: result.order?.status });
+        clearCart();
+        setSheetOpen(false);
+        setSuccessMsg(t('itemsAddedToOrder', { number: shortOrderNumber(target.orderNumber) }));
+        setTimeout(() => setSuccessMsg(''), 4000);
+      } else {
+        setErrorMsg(result.error || t('sendOrderFailed'));
+        setTimeout(() => setErrorMsg(''), 4000);
+        if (tableNumber) loadOpenBills(tableNumber, true);
+      }
+      setLoading(false);
+      return;
+    }
+
     const result = await createOrder({
       type: orderType,
       tableNumber: tableNumber || undefined,
       note: orderNote || undefined,
       discount: discount > 0 ? discount : undefined,
-      items: items.map((item) => ({
-        menuItemId: item.menuItemId,
-        variantId: item.variantId,
-        quantity: item.quantity,
-        note: item.note,
-        overridePrice: item.overridePrice,
-      })),
+      clientKey: newClientKey(),
+      items: payloadItems,
     });
 
-    if (result.success && result.order) {
+    if (result.success) {
       // Emit socket event for kitchen immediately (no payment step for waiter)
       emit('order:new', { orderId: result.order.id, orderType, tableNumber });
       clearCart();
+      setSheetOpen(false);
       setSuccessMsg(t('orderSent'));
       setTimeout(() => setSuccessMsg(''), 4000);
     } else {
-      setErrorMsg(t('sendOrderFailed'));
-      setTimeout(() => setErrorMsg(''), 3000);
+      if (result.code === 'TABLE_HAS_OPEN_BILL' && tableNumber) loadOpenBills(tableNumber);
+      setErrorMsg(result.error || t('sendOrderFailed'));
+      setTimeout(() => setErrorMsg(''), 4000);
     }
     setLoading(false);
   };
@@ -135,18 +204,21 @@ export default function WaiterPage() {
   return (
     <>
       {/* Waiter header */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-        background: 'var(--accent-gold)', color: 'white',
-        padding: 'var(--space-2) var(--space-4)',
-        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-        fontSize: '0.875rem', fontWeight: 600,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-      }}>
+      <div
+        className="waiter-banner"
+        style={{
+          position: 'fixed', top: 'var(--header-height)', left: 0, right: 0, zIndex: 99,
+          background: 'var(--accent-gold)', color: 'white',
+          padding: 'var(--space-2) var(--space-4)',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+          fontSize: '0.875rem', fontWeight: 600,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+        }}
+      >
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <Icon name="menu" size={16} /> {t('waiterMode')}
         </span>
-        <span style={{ marginLeft: 'auto', opacity: 0.85, fontWeight: 400, fontSize: '0.8rem' }}>
+        <span className="waiter-banner-hint" style={{ marginLeft: 'auto', opacity: 0.85, fontWeight: 400, fontSize: '0.8rem' }}>
           {t('ordersGoToKitchen')}
         </span>
       </div>
@@ -213,13 +285,13 @@ export default function WaiterPage() {
                       </div>
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        <Icon name="user" size={14} /> {t('orderedBy')} {getLocaleName(order.staff.name, order.staff.nameAm, locale)}
+                        <Icon name="user" size={14} /> {t('orderedBy')} {getLocaleName(order.staff.name, order.staff.nameAm, locale, order.staff.nameOm)}
                       </div>
 
                       <div style={{ marginTop: 'var(--space-2)' }}>
                         <ul style={{ paddingLeft: '20px', fontSize: '0.875rem', margin: 0 }}>
                           {order.items.map((item) => (
-                            <li key={item.id}>{item.quantity}x {getLocaleName(item.itemNameEn, item.itemNameAm, locale)}</li>
+                            <li key={item.id}>{item.quantity}x {getLocaleName(item.itemNameEn, item.itemNameAm, locale, item.itemNameOm)}</li>
                           ))}
                         </ul>
                       </div>
@@ -243,8 +315,24 @@ export default function WaiterPage() {
           onPay={handleSendToKitchen}
           loading={loading}
           isWaiter={true}
+          openBills={openBills}
+          openBillsLoading={loadingOpenBills}
+          sheetOpen={sheetOpen}
+          onClose={() => setSheetOpen(false)}
         />
       </div>
+
+      {/* Mobile: cart summary opens the order sheet */}
+      {items.length > 0 && (
+        <button type="button" className="pos-cart-bar" onClick={() => setSheetOpen(true)}>
+          <span className="pos-cart-bar-count">{items.reduce((s, i) => s + i.quantity, 0)}</span>
+          <span className="pos-cart-bar-label">{t('currentOrder')}</span>
+          <span className="pos-cart-bar-total">{formatPrice(getTotal(), locale)}</span>
+          <Icon name="chevronRight" size={18} />
+        </button>
+      )}
+
+      {sheetOpen && <div className="pos-sheet-backdrop" onClick={() => setSheetOpen(false)} />}
 
       {/* Success Toast */}
       {successMsg && (

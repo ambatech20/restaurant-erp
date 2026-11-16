@@ -30,6 +30,7 @@ export async function getEmployees() {
 export async function createEmployee(data: {
   name: string;
   nameAm?: string;
+  nameOm?: string;
   pin: string;
   role: string;
   phone?: string;
@@ -46,6 +47,7 @@ export async function createEmployee(data: {
       data: {
         name: data.name,
         nameAm: data.nameAm,
+        nameOm: data.nameOm,
         pinHash,
         role: data.role,
         phone: data.phone,
@@ -66,6 +68,7 @@ export async function updateEmployee(
   data: {
     name?: string;
     nameAm?: string;
+    nameOm?: string;
     role?: string;
     phone?: string;
     salary?: number;
@@ -80,6 +83,7 @@ export async function updateEmployee(
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.nameAm !== undefined) updateData.nameAm = data.nameAm;
+    if (data.nameOm !== undefined) updateData.nameOm = data.nameOm;
     if (data.role !== undefined) updateData.role = data.role;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.salary !== undefined) updateData.salary = data.salary;

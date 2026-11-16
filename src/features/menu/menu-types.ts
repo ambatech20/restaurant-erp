@@ -2,6 +2,7 @@ export interface MenuCategoryView {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   color: string | null;
   icon: string | null;
   sortOrder: number;
@@ -11,20 +12,23 @@ export interface MenuItemView {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   descEn: string | null;
   descAm: string | null;
+  descOm: string | null;
   price: number;
   basePrice: number;
   isAvailable: boolean;
   categoryId: number;
   image: string | null;
   sortOrder: number;
-  category: { nameEn: string; nameAm: string | null; color: string | null; icon: string | null };
+  category: { nameEn: string; nameAm: string | null; nameOm: string | null; color: string | null; icon: string | null };
   scheduledIncreaseActive: boolean;
   variants: {
     id: number;
     nameEn: string;
     nameAm: string | null;
+    nameOm: string | null;
     priceOffset: number;
     price: number;
     scheduledIncreaseActive: boolean;
@@ -40,6 +44,7 @@ export interface StudioCategory {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   color: string | null;
   icon: string | null;
   sortOrder: number;
@@ -53,6 +58,7 @@ export interface StudioVariant {
   menuItemId: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   priceOffset: number;
   isActive: boolean;
   scheduledIncrease: number;
@@ -65,8 +71,10 @@ export interface StudioItem {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   descEn: string | null;
   descAm: string | null;
+  descOm: string | null;
   price: number;
   isAvailable: boolean;
   categoryId: number;
@@ -81,6 +89,7 @@ export interface StudioItem {
     id: number;
     nameEn: string;
     nameAm: string | null;
+    nameOm: string | null;
     color: string | null;
     icon: string | null;
     isActive: boolean;

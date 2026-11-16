@@ -20,21 +20,23 @@ interface Variant {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm: string | null;
   priceOffset: number;
 }
 
 interface Category {
-  id: number; nameEn: string; nameAm: string | null; color: string | null; icon: string | null;
+  id: number; nameEn: string; nameAm: string | null; nameOm?: string | null; color: string | null; icon: string | null;
 }
 
 interface MenuItem {
-  id: number; nameEn: string; nameAm: string | null; price: number; isAvailable: boolean; categoryId: number;
+  id: number; nameEn: string; nameAm: string | null; nameOm?: string | null; descOm?: string | null;
+  price: number; isAvailable: boolean; categoryId: number;
   image: string | null;
-  category: { nameEn: string; nameAm: string | null; color: string | null };
+  category: { nameEn: string; nameAm: string | null; nameOm?: string | null; color: string | null };
   variants: Variant[];
 }
 
-const emptyForm = { nameEn: '', nameAm: '', price: '', image: '' };
+const emptyForm = { nameEn: '', nameAm: '', nameOm: '', price: '', image: '' };
 
 /** Downscale an image in the browser so uploads stay small. */
 async function prepareImage(file: File, maxDim = 900): Promise<Blob> {
@@ -67,7 +69,7 @@ export default function MenuManagementPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
-  const [portionForm, setPortionForm] = useState({ nameEn: '', nameAm: '', priceOffset: '' });
+  const [portionForm, setPortionForm] = useState({ nameEn: '', nameAm: '', nameOm: '', priceOffset: '' });
 
   const loadData = async () => {
     const [catRes, itemRes] = await Promise.all([getCategories(), getAllMenuItems()]);
@@ -111,6 +113,7 @@ export default function MenuManagementPage() {
     await createMenuItem({
       nameEn: form.nameEn,
       nameAm: form.nameAm || undefined,
+      nameOm: form.nameOm || undefined,
       price: parseFloat(form.price),
       categoryId: activeCategory,
       image: form.image || undefined,
@@ -123,10 +126,11 @@ export default function MenuManagementPage() {
   const startEdit = (item: MenuItem) => {
     setShowAddForm(false);
     setEditingId(item.id);
-    setPortionForm({ nameEn: '', nameAm: '', priceOffset: '' });
+    setPortionForm({ nameEn: '', nameAm: '', nameOm: '', priceOffset: '' });
     setForm({
       nameEn: item.nameEn,
       nameAm: item.nameAm || '',
+      nameOm: item.nameOm || '',
       price: String(item.price),
       image: item.image || '',
     });
@@ -137,6 +141,7 @@ export default function MenuManagementPage() {
     await updateMenuItem(editingId, {
       nameEn: form.nameEn,
       nameAm: form.nameAm || undefined,
+      nameOm: form.nameOm || undefined,
       price: parseFloat(form.price),
       image: form.image || null,
     });
@@ -151,9 +156,10 @@ export default function MenuManagementPage() {
       menuItemId: editingId,
       nameEn: portionForm.nameEn,
       nameAm: portionForm.nameAm || undefined,
+      nameOm: portionForm.nameOm || undefined,
       priceOffset: portionForm.priceOffset ? parseFloat(portionForm.priceOffset) : 0,
     });
-    setPortionForm({ nameEn: '', nameAm: '', priceOffset: '' });
+    setPortionForm({ nameEn: '', nameAm: '', nameOm: '', priceOffset: '' });
     loadData();
   };
 
@@ -216,9 +222,9 @@ export default function MenuManagementPage() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--space-5)' }}>
+      <div className="menu-manage-layout" style={{ display: 'flex', gap: 'var(--space-5)' }}>
         {/* Categories sidebar */}
-        <div style={{ width: '220px', flexShrink: 0 }}>
+        <div className="menu-manage-cats" style={{ width: '220px', flexShrink: 0 }}>
           <h3 style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 'var(--space-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {t('categories')}
           </h3>
@@ -236,7 +242,7 @@ export default function MenuManagementPage() {
                 onClick={() => { setActiveCategory(cat.id); setShowAddForm(false); setEditingId(null); }}
               >
                 <span className="icon">{cat.icon || <Icon name="folder" size={18} />}</span>
-                {getLocaleName(cat.nameEn, cat.nameAm, locale)}
+                {getLocaleName(cat.nameEn, cat.nameAm, locale, cat.nameOm)}
                 <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   {items.filter((i) => i.categoryId === cat.id).length}
                 </span>
@@ -251,7 +257,7 @@ export default function MenuManagementPage() {
           {showAddForm && (
             <div className="glass-card-static" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
               <h4 style={{ marginBottom: 'var(--space-3)' }}>{t('addItem')}</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 200px auto', gap: 'var(--space-3)', alignItems: 'end' }}>
+              <div className="form-grid form-grid-items">
                 <div>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('itemName')}</label>
                   <input className="input" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} placeholder="English name" />
@@ -259,6 +265,10 @@ export default function MenuManagementPage() {
                 <div>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('itemNameAm')}</label>
                   <input className="input" value={form.nameAm} onChange={(e) => setForm({ ...form, nameAm: e.target.value })} placeholder="አማርኛ ስም" />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('itemNameOm')}</label>
+                  <input className="input" value={form.nameOm} onChange={(e) => setForm({ ...form, nameOm: e.target.value })} placeholder="Afaan Oromoo" />
                 </div>
                 <div>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('price')} (ETB)</label>
@@ -280,7 +290,7 @@ export default function MenuManagementPage() {
                 </button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 200px auto', gap: 'var(--space-3)', alignItems: 'end' }}>
+              <div className="form-grid form-grid-items">
                 <div>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('itemName')}</label>
                   <input className="input" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} />
@@ -288,6 +298,10 @@ export default function MenuManagementPage() {
                 <div>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('itemNameAm')}</label>
                   <input className="input" value={form.nameAm} onChange={(e) => setForm({ ...form, nameAm: e.target.value })} placeholder="አማርኛ" />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('itemNameOm')}</label>
+                  <input className="input" value={form.nameOm} onChange={(e) => setForm({ ...form, nameOm: e.target.value })} placeholder="Afaan Oromoo" />
                 </div>
                 <div>
                   <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('price')} (ETB)</label>
@@ -317,7 +331,7 @@ export default function MenuManagementPage() {
                           background: 'var(--bg-card-hover)', border: '1px solid var(--border)', fontSize: '0.8125rem',
                         }}
                       >
-                        <strong>{getLocaleName(v.nameEn, v.nameAm, locale)}</strong>
+                        <strong>{getLocaleName(v.nameEn, v.nameAm, locale, v.nameOm)}</strong>
                         <span style={{ color: 'var(--accent-emerald)' }}>
                           {formatPrice(editingItem.price + v.priceOffset, locale)}
                         </span>
@@ -339,7 +353,7 @@ export default function MenuManagementPage() {
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 160px auto', gap: 'var(--space-3)', alignItems: 'end' }}>
+                <div className="form-grid form-grid-portions">
                   <div>
                     <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('portionName')}</label>
                     <input className="input" value={portionForm.nameEn} onChange={(e) => setPortionForm({ ...portionForm, nameEn: e.target.value })} placeholder="Small / Large" />
@@ -347,6 +361,10 @@ export default function MenuManagementPage() {
                   <div>
                     <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('portionNameAm')}</label>
                     <input className="input" value={portionForm.nameAm} onChange={(e) => setPortionForm({ ...portionForm, nameAm: e.target.value })} placeholder="ትንሽ / ትልቅ" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('portionNameOm')}</label>
+                    <input className="input" value={portionForm.nameOm} onChange={(e) => setPortionForm({ ...portionForm, nameOm: e.target.value })} placeholder="Xiqqaa / Guddaa" />
                   </div>
                   <div>
                     <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{t('priceOffset')} (ETB)</label>
@@ -387,9 +405,9 @@ export default function MenuManagementPage() {
                   <div className="flex-between" style={{ gap: 'var(--space-2)' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: '0.9375rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {getLocaleName(item.nameEn, item.nameAm, locale)}
+                        {getLocaleName(item.nameEn, item.nameAm, locale, item.nameOm)}
                       </div>
-                      {item.nameAm && locale !== 'am' && (
+                      {item.nameAm && locale === 'en' && (
                         <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{item.nameAm}</div>
                       )}
                       {item.variants.length > 0 && (

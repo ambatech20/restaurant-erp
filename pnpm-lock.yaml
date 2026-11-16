@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@eliabay100-del/pcheck-erp-sdk':
-        specifier: file:../../pcheck/packages/pcheck-erp-sdk
-        version: file:../../pcheck/packages/pcheck-erp-sdk
+        specifier: file:vendor/pcheck-erp-sdk
+        version: file:vendor/pcheck-erp-sdk
       '@prisma/client':
         specifier: ^6.9.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -148,8 +148,8 @@ packages:
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
 
-  '@eliabay100-del/pcheck-erp-sdk@file:../../pcheck/packages/pcheck-erp-sdk':
-    resolution: {directory: ../../pcheck/packages/pcheck-erp-sdk, type: directory}
+  '@eliabay100-del/pcheck-erp-sdk@file:vendor/pcheck-erp-sdk':
+    resolution: {directory: vendor/pcheck-erp-sdk, type: directory}
     engines: {node: '>=18.0.0'}
 
   '@eloqnt/config@0.1.1':
@@ -3120,7 +3120,7 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@eliabay100-del/pcheck-erp-sdk@file:../../pcheck/packages/pcheck-erp-sdk': {}
+  '@eliabay100-del/pcheck-erp-sdk@file:vendor/pcheck-erp-sdk': {}
 
   '@eloqnt/config@0.1.1': {}
 

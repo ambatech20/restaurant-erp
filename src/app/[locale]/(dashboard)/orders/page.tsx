@@ -20,8 +20,8 @@ interface OrderData {
   total: number;
   note: string | null;
   createdAt: string;
-  items: { id: number; itemNameEn: string; itemNameAm: string | null; quantity: number; unitPrice: number; totalPrice: number; note: string | null }[];
-  staff: { name: string; nameAm: string | null };
+  items: { id: number; itemNameEn: string; itemNameAm: string | null; itemNameOm: string | null; quantity: number; unitPrice: number; totalPrice: number; note: string | null }[];
+  staff: { name: string; nameAm: string | null; nameOm: string | null };
   payment: { method: string; amountPaid: number; amountDue: number; changeGiven: number; reference: string | null; verificationStatus: string | null } | null;
 }
 
@@ -63,9 +63,11 @@ export default function OrdersPage() {
       createdAt: order.createdAt,
       staffName: order.staff.name,
       staffNameAm: order.staff.nameAm,
+      staffNameOm: order.staff.nameOm,
       lines: order.items.map((i) => ({
         nameEn: i.itemNameEn,
         nameAm: i.itemNameAm,
+        nameOm: i.itemNameOm,
         qty: i.quantity,
         unitPrice: i.unitPrice,
         total: i.totalPrice,
@@ -94,23 +96,28 @@ export default function OrdersPage() {
         >
           <option value="">{tc('all')}</option>
           {statuses.filter(Boolean).map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>{t(s.toLowerCase())}</option>
           ))}
         </select>
       </div>
 
-      <div className="glass-card-static" style={{ overflow: 'hidden' }}>
+      <div className="glass-card-static table-scroll">
+        {orders.length === 0 ? (
+          <div className="empty-state" style={{ padding: 'var(--space-10) var(--space-4)' }}>
+            <div className="empty-state-title">{t('noOrders')}</div>
+          </div>
+        ) : (
         <table className="data-table">
           <thead>
             <tr>
-              <th>Order #</th>
-              <th>Time</th>
-              <th>Type</th>
-              <th>Items</th>
-              <th>Total</th>
-              <th>Payment</th>
-              <th>Staff</th>
-              <th>Status</th>
+              <th>{t('orderNumber')}</th>
+              <th>{t('time')}</th>
+              <th>{t('type')}</th>
+              <th>{t('items')}</th>
+              <th>{t('total')}</th>
+              <th>{t('paymentLabel')}</th>
+              <th>{t('staffLabel')}</th>
+              <th>{t('status')}</th>
             </tr>
           </thead>
           <tbody>
@@ -123,18 +130,18 @@ export default function OrdersPage() {
                   <td>{order.items.length}</td>
                   <td style={{ fontWeight: 600, color: 'var(--accent-gold)' }}>{formatPrice(order.total, locale)}</td>
                   <td>{order.payment ? (order.payment.method === 'CASH' ? <Icon name="banknote" size={16} /> : <Icon name="creditCard" size={16} />) : '—'}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{getLocaleName(order.staff.name, order.staff.nameAm, locale)}</td>
-                  <td><span className={`badge ${getStatusBadgeClass(order.status)}`}>{order.status}</span></td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{getLocaleName(order.staff.name, order.staff.nameAm, locale, order.staff.nameOm)}</td>
+                  <td><span className={`badge ${getStatusBadgeClass(order.status)}`}>{t(order.status.toLowerCase())}</span></td>
                 </tr>
                 {expandedId === order.id && (
                   <tr key={`${order.id}-details`}>
                     <td colSpan={8} style={{ background: 'var(--bg-card)', padding: 'var(--space-4)' }}>
                       <div style={{ display: 'flex', gap: 'var(--space-6)' }}>
                         <div>
-                          <h4 style={{ marginBottom: 'var(--space-2)', fontSize: '0.875rem' }}>Items:</h4>
+                          <h4 style={{ marginBottom: 'var(--space-2)', fontSize: '0.875rem' }}>{t('itemsLabel')}</h4>
                           {order.items.map((item) => (
                             <div key={item.id} style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', padding: '2px 0' }}>
-                              {item.quantity}× {getLocaleName(item.itemNameEn, item.itemNameAm, locale)}
+                              {item.quantity}× {getLocaleName(item.itemNameEn, item.itemNameAm, locale, item.itemNameOm)}
                             </div>
                           ))}
                         </div>
@@ -144,7 +151,7 @@ export default function OrdersPage() {
                             onClick={(e) => { e.stopPropagation(); viewReceipt(order); }}
                             style={{ height: 'fit-content' }}
                           >
-                            <Icon name="creditCard" size={16} /> View Receipt
+                            <Icon name="creditCard" size={16} /> {t('viewReceipt')}
                           </button>
                         )}
                       </div>
@@ -153,11 +160,9 @@ export default function OrdersPage() {
                 )}
               </>
             ))}
-            {orders.length === 0 && (
-              <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 'var(--space-10)' }}>{t('noOrders')}</td></tr>
-            )}
           </tbody>
         </table>
+        )}
       </div>
 
       {/* Pagination */}

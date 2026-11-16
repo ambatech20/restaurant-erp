@@ -10,11 +10,12 @@ interface MenuItem {
   id: number;
   nameEn: string;
   nameAm: string | null;
+  nameOm?: string | null;
   price: number;
   isAvailable: boolean;
   image: string | null;
-  category: { nameEn: string; nameAm: string | null; color: string | null };
-  variants?: { id: number; nameEn: string; nameAm: string | null; priceOffset: number }[];
+  category: { nameEn: string; nameAm: string | null; nameOm?: string | null; color: string | null };
+  variants?: { id: number; nameEn: string; nameAm: string | null; nameOm?: string | null; priceOffset: number }[];
 }
 
 interface MenuGridProps {
@@ -55,6 +56,7 @@ export default function MenuGrid({ items }: MenuGridProps) {
       menuItemId: item.id,
       nameEn: item.nameEn,
       nameAm: item.nameAm,
+      nameOm: item.nameOm ?? null,
       price: item.price,
     });
     setAnimatingId(item.id);
@@ -74,7 +76,7 @@ export default function MenuGrid({ items }: MenuGridProps) {
   const groupedItems: Record<string, MenuItem[]> = {};
 
   items.forEach(item => {
-    const catName = getLocaleName(item.category?.nameEn || 'Uncategorized', item.category?.nameAm || null, locale);
+    const catName = getLocaleName(item.category?.nameEn || 'Uncategorized', item.category?.nameAm || null, locale, item.category?.nameOm || null);
     if (!groupedItems[catName]) {
       groupedItems[catName] = [];
     }
@@ -85,6 +87,7 @@ export default function MenuGrid({ items }: MenuGridProps) {
     id: number;
     nameEn: string;
     nameAm: string | null;
+    nameOm?: string | null;
     priceOffset: number;
   }) => {
     if (!selectedVariantItem) return;
@@ -93,8 +96,10 @@ export default function MenuGrid({ items }: MenuGridProps) {
       variantId: variant.id,
       nameEn: selectedVariantItem.nameEn,
       nameAm: selectedVariantItem.nameAm,
+      nameOm: selectedVariantItem.nameOm ?? null,
       variantNameEn: variant.nameEn,
       variantNameAm: variant.nameAm,
+      variantNameOm: variant.nameOm ?? null,
       price: selectedVariantItem.price + variant.priceOffset,
     });
     setAnimatingId(selectedVariantItem.id);
@@ -128,7 +133,7 @@ export default function MenuGrid({ items }: MenuGridProps) {
                   )}
                 </span>
                 <span className="menu-item-body">
-                  <span className="menu-item-name">{getLocaleName(item.nameEn, item.nameAm, locale)}</span>
+                  <span className="menu-item-name">{getLocaleName(item.nameEn, item.nameAm, locale, item.nameOm)}</span>
                   <span className="menu-item-meta">
                     <span className="menu-item-price">{priceLabel(item)}</span>
                     {item.variants && item.variants.length > 0 && (
@@ -155,7 +160,7 @@ export default function MenuGrid({ items }: MenuGridProps) {
               </div>
             )}
             <h2 style={{ margin: 0, fontSize: '1.125rem' }}>
-              {getLocaleName(selectedVariantItem.nameEn, selectedVariantItem.nameAm, locale)}
+              {getLocaleName(selectedVariantItem.nameEn, selectedVariantItem.nameAm, locale, selectedVariantItem.nameOm)}
             </h2>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
@@ -166,7 +171,7 @@ export default function MenuGrid({ items }: MenuGridProps) {
                 style={{ justifyContent: 'space-between', padding: 'var(--space-3)' }}
                 onClick={() => handleSelectVariant(v)}
               >
-                <span style={{ fontWeight: 600 }}>{getLocaleName(v.nameEn, v.nameAm, locale)}</span>
+                <span style={{ fontWeight: 600 }}>{getLocaleName(v.nameEn, v.nameAm, locale, v.nameOm)}</span>
                 <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
                   {v.priceOffset !== 0 && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>

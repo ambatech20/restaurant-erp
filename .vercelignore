@@ -1,0 +1,10 @@
+_sales_doc
+_agreement_doc
+business-card
+vibe_images
+backups
+uploads
+*.log
+*.tsbuildinfo
+prisma/*.db
+prisma/*.db-journal

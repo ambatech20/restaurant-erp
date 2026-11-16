@@ -1,15 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import CategoryTabs from '@/components/pos/CategoryTabs';
 import MenuGrid from '@/components/pos/MenuGrid';
 import OrderPanel from '@/components/pos/OrderPanel';
 import PaymentModal from '@/features/payments/components/PaymentModal';
 import { getCategories, getMenuItems } from '@/features/menu/actions';
-import { createOrder, getUnpaidOrders, getReadyOrders, updateOrderStatus } from '@/features/orders/actions';
+import {
+  addItemsToOrder,
+  createOrder,
+  getOpenBillsForTable,
+  getUnpaidOrders,
+  getReadyOrders,
+  updateOrderStatus,
+} from '@/features/orders/actions';
 import type { OrderView } from '@/features/orders/types';
+import { resolveAppendTarget, shortOrderNumber, type OpenBillOption } from '@/features/orders/openBills';
 import { useCartStore } from '@/features/orders/store';
+import { newClientKey } from '@/lib/clientKey';
 import { useAsyncEffect } from '@/hooks/useAsyncEffect';
 import { useSocketEmit, useSocketEvent } from '@/hooks/useSocketEvent';
 import { formatPrice, getLocaleName } from '@/lib/utils';
@@ -53,6 +62,10 @@ export default function CashierPage() {
   const [paymentTotal, setPaymentTotal] = useState<number>(0);
   const [paymentIsNewOrder, setPaymentIsNewOrder] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [openBills, setOpenBills] = useState<OpenBillOption[]>([]);
+  const [loadingOpenBills, setLoadingOpenBills] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const items = useCartStore((s) => s.items);
   const orderType = useCartStore((s) => s.orderType);
@@ -61,7 +74,39 @@ export default function CashierPage() {
   const discount = useCartStore((s) => s.discount);
   const getTotal = useCartStore((s) => s.getTotal);
   const clearCart = useCartStore((s) => s.clearCart);
+  const setAppendTarget = useCartStore((s) => s.setAppendTarget);
   const emit = useSocketEmit();
+
+  const showError = (message: string) => {
+    setErrorMsg(message);
+    setTimeout(() => setErrorMsg(''), 4000);
+  };
+
+  const loadOpenBills = useCallback(
+    async (table: string, clearTarget = false) => {
+      // The table may have changed (or the cart cleared) while the request was
+      // in flight — never attach a bill to a cart that moved on.
+      if (useCartStore.getState().tableNumber !== table) return;
+      const result = await getOpenBillsForTable(table);
+      if (useCartStore.getState().tableNumber !== table) return;
+      if (result.success) {
+        const bills = result.bills as OpenBillOption[];
+        setOpenBills(bills);
+        // Exactly one open bill is the append target; two or more wait for a
+        // deliberate pick, and a bill that disappeared is dropped.
+        setAppendTarget(
+          clearTarget ? null : resolveAppendTarget(bills, useCartStore.getState().appendTarget),
+        );
+      }
+      setLoadingOpenBills(false);
+    },
+    [setAppendTarget],
+  );
+
+  useAsyncEffect(() => {
+    if (orderType !== 'DINE_IN' || !tableNumber) return;
+    loadOpenBills(tableNumber);
+  }, [orderType, tableNumber, loadOpenBills]);
 
   const fetchUnpaidOrders = async () => {
     setLoadingOrders(true);
@@ -91,10 +136,14 @@ export default function CashierPage() {
   }, []);
 
   // Listen for new orders to refresh lists automatically
-  useSocketEvent('order:new', fetchUnpaidOrders);
+  useSocketEvent('order:new', () => {
+    fetchUnpaidOrders();
+    if (tableNumber) loadOpenBills(tableNumber);
+  });
   useSocketEvent('order:status-update', () => {
     fetchUnpaidOrders();
     fetchReadyOrders();
+    if (tableNumber) loadOpenBills(tableNumber);
   });
 
   // Filter items by category
@@ -131,30 +180,62 @@ export default function CashierPage() {
 
   // Order first: create the order and send it to the kitchen WITHOUT taking
   // payment. It stays in the "Unpaid" list until the cashier settles it.
+  // When the table has one open bill (or the cashier picked one), the same
+  // button appends the second course to that bill instead of opening a new one.
   const handleSendToKitchen = async () => {
     if (items.length === 0) return;
     setLoading(true);
+
+    const payloadItems = items.map((item) => ({
+      menuItemId: item.menuItemId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      note: item.note,
+      overridePrice: item.overridePrice,
+    }));
+    const target = useCartStore.getState().appendTarget;
+
+    if (target) {
+      const result = await addItemsToOrder(target.id, payloadItems, newClientKey());
+      if (result.success) {
+        emit('order:new', { orderId: target.id, tableNumber, appended: true });
+        emit('order:status-update', { orderId: target.id, status: result.order?.status });
+        clearCart();
+        setSheetOpen(false);
+        fetchUnpaidOrders();
+        fetchReadyOrders();
+        setSuccessMsg(t('itemsAddedToOrder', { number: shortOrderNumber(target.orderNumber) }));
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        // The bill may have been settled or closed by another terminal.
+        showError(result.error || t('sendOrderFailed'));
+        if (tableNumber) loadOpenBills(tableNumber, true);
+      }
+      setLoading(false);
+      return;
+    }
 
     const result = await createOrder({
       type: orderType,
       tableNumber: tableNumber || undefined,
       note: orderNote || undefined,
       discount: discount > 0 ? discount : undefined,
-      items: items.map((item) => ({
-        menuItemId: item.menuItemId,
-        variantId: item.variantId,
-        quantity: item.quantity,
-        note: item.note,
-        overridePrice: item.overridePrice,
-      })),
+      clientKey: newClientKey(),
+      items: payloadItems,
     });
 
-    if (result.success && result.order) {
+    if (result.success) {
       emit('order:new', { orderId: result.order.id, orderType, tableNumber });
       clearCart();
+      setSheetOpen(false);
       fetchUnpaidOrders();
       setSuccessMsg(t('orderSent'));
       setTimeout(() => setSuccessMsg(''), 3000);
+    } else {
+      // Another terminal opened the table's bill first — show it so the
+      // cashier can append instead of retrying blindly.
+      if (result.code === 'TABLE_HAS_OPEN_BILL' && tableNumber) loadOpenBills(tableNumber);
+      showError(result.error || t('sendOrderFailed'));
     }
     setLoading(false);
   };
@@ -180,6 +261,7 @@ export default function CashierPage() {
     setPaymentIsNewOrder(false);
 
     if (wasNewOrder) clearCart();
+    setSheetOpen(false);
     fetchUnpaidOrders();
     fetchReadyOrders();
 
@@ -267,14 +349,14 @@ export default function CashierPage() {
                         </div>
                         
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                          <Icon name="user" size={14} /> {getLocaleName(order.staff.name, order.staff.nameAm, locale)} ({order.staff.role})
+                          <Icon name="user" size={14} /> {getLocaleName(order.staff.name, order.staff.nameAm, locale, order.staff.nameOm)} ({order.staff.role})
                         </div>
 
                         {/* Order Item Details */}
                         <div style={{ marginTop: 'var(--space-2)' }}>
                           <ul style={{ paddingLeft: '20px', fontSize: '0.875rem', margin: 0 }}>
                             {order.items.map((item) => (
-                              <li key={item.id}>{item.quantity}x {getLocaleName(item.itemNameEn, item.itemNameAm, locale)}</li>
+                              <li key={item.id}>{item.quantity}x {getLocaleName(item.itemNameEn, item.itemNameAm, locale, item.itemNameOm)}</li>
                             ))}
                           </ul>
                         </div>
@@ -316,12 +398,12 @@ export default function CashierPage() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        <Icon name="user" size={14} /> {t('orderedBy')} {getLocaleName(order.staff.name, order.staff.nameAm, locale)}
+                        <Icon name="user" size={14} /> {t('orderedBy')} {getLocaleName(order.staff.name, order.staff.nameAm, locale, order.staff.nameOm)}
                       </div>
                       <div style={{ marginTop: 'var(--space-2)' }}>
                         <ul style={{ paddingLeft: '20px', fontSize: '0.875rem', margin: 0 }}>
                           {order.items.map((item) => (
-                            <li key={item.id}>{item.quantity}x {getLocaleName(item.itemNameEn, item.itemNameAm, locale)}</li>
+                            <li key={item.id}>{item.quantity}x {getLocaleName(item.itemNameEn, item.itemNameAm, locale, item.itemNameOm)}</li>
                           ))}
                         </ul>
                       </div>
@@ -351,8 +433,24 @@ export default function CashierPage() {
           onPlaceOrder={handleSendToKitchen}
           onPay={handlePayNewOrder}
           loading={loading}
+          openBills={openBills}
+          openBillsLoading={loadingOpenBills}
+          sheetOpen={sheetOpen}
+          onClose={() => setSheetOpen(false)}
         />
       </div>
+
+      {/* Mobile: cart summary opens the order sheet */}
+      {items.length > 0 && (
+        <button type="button" className="pos-cart-bar" onClick={() => setSheetOpen(true)}>
+          <span className="pos-cart-bar-count">{items.reduce((s, i) => s + i.quantity, 0)}</span>
+          <span className="pos-cart-bar-label">{t('currentOrder')}</span>
+          <span className="pos-cart-bar-total">{formatPrice(getTotal(), locale)}</span>
+          <Icon name="chevronRight" size={18} />
+        </button>
+      )}
+
+      {sheetOpen && <div className="pos-sheet-backdrop" onClick={() => setSheetOpen(false)} />}
 
       {/* Payment Modal */}
       {showPayment && currentOrderId && (
@@ -371,6 +469,18 @@ export default function CashierPage() {
             <span style={{ color: 'var(--success)' }}><Icon name="checkCircle" size={24} /></span>
             <div>
               <div style={{ fontWeight: 600 }}>{successMsg}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Toast */}
+      {errorMsg && (
+        <div className="toast-container">
+          <div className="toast toast-error animate-slideInRight">
+            <span style={{ color: 'var(--danger)' }}><Icon name="xCircle" size={24} /></span>
+            <div>
+              <div style={{ fontWeight: 600 }}>{errorMsg}</div>
             </div>
           </div>
         </div>

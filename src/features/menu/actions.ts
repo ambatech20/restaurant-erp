@@ -77,8 +77,10 @@ export async function getAllMenuItems() {
 export async function createMenuItem(data: {
   nameEn: string;
   nameAm?: string;
+  nameOm?: string;
   descEn?: string;
   descAm?: string;
+  descOm?: string;
   price: number;
   categoryId: number;
   image?: string;
@@ -106,8 +108,10 @@ export async function updateMenuItem(
   data: {
     nameEn?: string;
     nameAm?: string;
+    nameOm?: string;
     descEn?: string;
     descAm?: string;
+    descOm?: string;
     price?: number;
     categoryId?: number;
     image?: string | null;
@@ -151,6 +155,10 @@ export async function uploadMenuImage(
       return { success: false, error: 'Only JPG, PNG, WEBP or GIF images are allowed' };
     }
 
+    if (process.env.VERCEL) {
+      return { success: false, error: 'Image upload is not available on the hosted deployment' };
+    }
+
     await mkdir(UPLOAD_DIR, { recursive: true });
     const filename = `${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
     const bytes = Buffer.from(await file.arrayBuffer());
@@ -169,6 +177,7 @@ export async function createMenuVariant(data: {
   menuItemId: number;
   nameEn: string;
   nameAm?: string;
+  nameOm?: string;
   priceOffset?: number;
 }) {
   try {
@@ -182,6 +191,7 @@ export async function createMenuVariant(data: {
         menuItemId: data.menuItemId,
         nameEn: data.nameEn.trim(),
         nameAm: data.nameAm?.trim() || null,
+        nameOm: data.nameOm?.trim() || null,
         priceOffset: Number.isFinite(data.priceOffset) ? Number(data.priceOffset) : 0,
       },
     });
@@ -194,7 +204,7 @@ export async function createMenuVariant(data: {
 
 export async function updateMenuVariant(
   id: number,
-  data: { nameEn?: string; nameAm?: string; priceOffset?: number; isActive?: boolean }
+  data: { nameEn?: string; nameAm?: string; nameOm?: string; priceOffset?: number; isActive?: boolean }
 ) {
   try {
     const auth = await authorize(MANAGEMENT_ROLES);
@@ -256,6 +266,7 @@ export async function deleteMenuItem(id: number) {
 export async function createCategory(data: {
   nameEn: string;
   nameAm?: string;
+  nameOm?: string;
   color?: string;
   icon?: string;
   sortOrder?: number;
@@ -277,6 +288,7 @@ export async function updateCategory(
   data: {
     nameEn?: string;
     nameAm?: string;
+    nameOm?: string;
     color?: string;
     icon?: string;
     isActive?: boolean;

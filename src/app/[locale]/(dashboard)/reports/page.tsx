@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useAsyncEffect } from '@/hooks/useAsyncEffect';
 import { formatPrice } from '@/lib/utils';
 import { getDailyReport, getWeeklyReport, getMonthlyReport } from '@/features/reports/actions';
@@ -98,6 +98,7 @@ function StatCard({ icon, label, value, sub, color }: StatCardProps) {
 
 export default function ReportsPage() {
   const locale = useLocale();
+  const tr = useTranslations('reports');
   const [period, setPeriod] = useState<Period>('daily');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [dailyData, setDailyData] = useState<DailyReportData | null>(null);
@@ -235,18 +236,18 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="page-header">
         <div>
-          <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="reports" size={24} /> Reports</div>
-          <p className="page-subtitle">Revenue and performance analytics</p>
+          <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="reports" size={24} /> {tr('title')}</div>
+          <p className="page-subtitle">{tr('subtitle')}</p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button className="btn btn-primary" onClick={handleExportImage} disabled={exportingImg || loading || (!dailyData && !weeklyData && !monthlyData)} style={{ background: 'var(--accent-gold)' }}>
-            {exportingImg ? (<><Icon name="image" size={16} /> Exporting...</>) : (<><Icon name="image" size={16} /> Export Image</>)}
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={handleExportImage} aria-label={tr('exportImage')} disabled={exportingImg || loading || (!dailyData && !weeklyData && !monthlyData)} style={{ background: 'var(--accent-gold)' }}>
+            {exportingImg ? (<><Icon name="image" size={16} /> <span className="header-label">{tr('exporting')}</span></>) : (<><Icon name="image" size={16} /> <span className="header-label">{tr('exportImage')}</span></>)}
           </button>
-          <button className="btn btn-primary" onClick={handleExport} disabled={loading || (!dailyData && !weeklyData && !monthlyData)}>
-            <Icon name="chartBar" size={16} /> Export CSV
+          <button className="btn btn-primary" onClick={handleExport} aria-label={tr('exportCsv')} disabled={loading || (!dailyData && !weeklyData && !monthlyData)}>
+            <Icon name="chartBar" size={16} /> <span className="header-label">{tr('exportCsv')}</span>
           </button>
-          <button className="btn btn-secondary" onClick={loadReport} disabled={loading}>
-            {loading ? (<><Icon name="loader" size={16} /> Loading...</>) : (<><Icon name="refresh" size={16} /> Refresh</>)}
+          <button className="btn btn-secondary" onClick={loadReport} aria-label={tr('refresh')} disabled={loading}>
+            {loading ? (<><Icon name="loader" size={16} /> {tr('loading')}</>) : (<><Icon name="refresh" size={16} /> <span className="header-label">{tr('refresh')}</span></>)}
           </button>
         </div>
       </div>
@@ -261,7 +262,7 @@ export default function ReportsPage() {
               onClick={() => setPeriod(p)}
               style={{ textTransform: 'capitalize', minWidth: '90px' }}
             >
-              {p === 'daily' ? (<><Icon name="calendar" size={15} /> Daily</>) : p === 'weekly' ? (<><Icon name="calendarDays" size={15} /> Weekly</>) : (<><Icon name="calendarDays" size={15} /> Monthly</>)}
+              {p === 'daily' ? (<><Icon name="calendar" size={15} /> {tr('daily')}</>) : p === 'weekly' ? (<><Icon name="calendarDays" size={15} /> {tr('weekly')}</>) : (<><Icon name="calendarDays" size={15} /> {tr('monthly')}</>)}
             </button>
           ))}
         </div>
@@ -269,7 +270,7 @@ export default function ReportsPage() {
         {/* Date picker for daily */}
         {period === 'daily' && (
           <div style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <label style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Select Date:</label>
+            <label style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{tr('selectDate')}</label>
             <input
               type="date"
               className="input"
@@ -290,33 +291,35 @@ export default function ReportsPage() {
       {/* DAILY REPORT */}
       {!loading && period === 'daily' && dailyData && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--space-4)' }}>
-            <StatCard icon="coins" label="Total Revenue" value={fp(dailyData.totalRevenue)} color="var(--success)" />
-            <StatCard icon="orders" label="Total Orders" value={String(dailyData.totalOrders)} />
-            <StatCard icon="banknote" label="Cash" value={fp(dailyData.cashRevenue)} />
-            <StatCard icon="creditCard" label="Card" value={fp(dailyData.cardRevenue)} />
-            <StatCard icon="smartphone" label="Mobile" value={fp(dailyData.mobileRevenue)} />
-            <StatCard icon="calculator" label="Avg Order" value={fp(dailyData.avgOrderValue)} />
+          <div className="report-kpi-grid">
+            <StatCard icon="coins" label={tr('totalRevenue')} value={fp(dailyData.totalRevenue)} color="var(--success)" />
+            <StatCard icon="orders" label={tr('totalOrders')} value={String(dailyData.totalOrders)} />
+            <StatCard icon="banknote" label={tr('cash')} value={fp(dailyData.cashRevenue)} />
+            <StatCard icon="creditCard" label={tr('card')} value={fp(dailyData.cardRevenue)} />
+            <StatCard icon="smartphone" label={tr('mobile')} value={fp(dailyData.mobileRevenue)} />
+            <StatCard icon="calculator" label={tr('avgOrder')} value={fp(dailyData.avgOrderValue)} />
           </div>
 
           {/* Hourly Breakdown */}
           {Object.keys(dailyData.hourlyRevenue).length > 0 && (
             <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', border: '1px solid var(--border)' }}>
-              <h3 style={{ marginBottom: 'var(--space-3)', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="clock" size={16} /> Revenue by Hour</h3>
-              <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-end', height: '120px', overflowX: 'auto' }}>
+              <h3 style={{ marginBottom: 'var(--space-3)', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="clock" size={16} /> {tr('revenueByHour')}</h3>
+              <div style={{ display: 'flex', gap: 'var(--space-1)', height: '120px', overflowX: 'auto' }}>
                 {Array.from({ length: 24 }, (_, h) => {
                   const val = dailyData.hourlyRevenue[h] || 0;
                   const maxVal = Math.max(...Object.values(dailyData.hourlyRevenue as Record<string, number>), 1);
                   const height = Math.max((val / maxVal) * 100, val > 0 ? 4 : 0);
                   return (
-                    <div key={h} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: 1, minWidth: '28px' }}>
-                      <div
-                        title={`${h}:00 — ${fp(val)}`}
-                        style={{
-                          width: '100%', background: val > 0 ? 'var(--accent-gold)' : 'var(--bg-input)',
-                          height: `${height}%`, borderRadius: '4px 4px 0 0', transition: 'height 0.3s', minHeight: '2px'
-                        }}
-                      />
+                    <div key={h} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: 1, height: '100%', minWidth: '28px' }}>
+                      <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
+                        <div
+                          title={`${h}:00 — ${fp(val)}`}
+                          style={{
+                            width: '100%', background: val > 0 ? 'var(--accent-gold)' : 'var(--bg-input)',
+                            height: `${height}%`, borderRadius: '4px 4px 0 0', transition: 'height 0.3s', minHeight: '2px'
+                          }}
+                        />
+                      </div>
                       <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)' }}>{h}</span>
                     </div>
                   );
@@ -328,7 +331,7 @@ export default function ReportsPage() {
           {/* Top Items */}
           {dailyData.topItems.length > 0 && (
             <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', border: '1px solid var(--border)' }}>
-              <h3 style={{ marginBottom: 'var(--space-3)', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trophy" size={16} /> Top Selling Items</h3>
+              <h3 style={{ marginBottom: 'var(--space-3)', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trophy" size={16} /> {tr('topSelling')}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {dailyData.topItems.map((item: ReportTopItem, idx: number) => (
                   <div key={item.nameEn} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2)', borderBottom: '1px solid var(--border)' }}>
@@ -349,31 +352,33 @@ export default function ReportsPage() {
       {/* WEEKLY REPORT */}
       {!loading && period === 'weekly' && weeklyData && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--space-4)' }}>
-            <StatCard icon="coins" label="7-Day Revenue" value={fp(weeklyData.totalRevenue)} color="var(--success)" />
-            <StatCard icon="orders" label="Total Orders" value={String(weeklyData.totalOrders)} />
-            <StatCard icon="calendarDays" label="Avg Daily Revenue" value={fp(weeklyData.avgDailyRevenue)} />
+          <div className="report-kpi-grid">
+            <StatCard icon="coins" label={tr('weekRevenue')} value={fp(weeklyData.totalRevenue)} color="var(--success)" />
+            <StatCard icon="orders" label={tr('totalOrders')} value={String(weeklyData.totalOrders)} />
+            <StatCard icon="calendarDays" label={tr('avgDailyRevenue')} value={fp(weeklyData.avgDailyRevenue)} />
           </div>
 
           {/* Daily bar chart */}
           <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', border: '1px solid var(--border)' }}>
-            <h3 style={{ marginBottom: 'var(--space-3)', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="calendarDays" size={16} /> Daily Revenue (Last 7 Days)</h3>
-            <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-end', height: '140px' }}>
+            <h3 style={{ marginBottom: 'var(--space-3)', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="calendarDays" size={16} /> {tr('dailyRevenue7')}</h3>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', height: '140px' }}>
               {Object.entries(weeklyData.dailyRevenue as Record<string, number>).map(([date, val]) => {
                 const maxVal = Math.max(...Object.values(weeklyData.dailyRevenue as Record<string, number>), 1);
                 const height = Math.max((val / maxVal) * 100, val > 0 ? 4 : 0);
                 const d = new Date(date);
-                const dayName = d.toLocaleDateString('en', { weekday: 'short' });
+                const dayName = d.toLocaleDateString(locale, { weekday: 'short' });
                 return (
-                  <div key={date} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flex: 1 }}>
+                  <div key={date} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flex: 1, height: '100%' }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{fp(val)}</span>
-                    <div
-                      title={`${date} — ${fp(val)}`}
-                      style={{
-                        width: '100%', background: val > 0 ? 'var(--accent-gold)' : 'var(--bg-input)',
-                        height: `${height}%`, borderRadius: '6px 6px 0 0', minHeight: '2px', transition: 'height 0.3s'
-                      }}
-                    />
+                    <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
+                      <div
+                        title={`${date} — ${fp(val)}`}
+                        style={{
+                          width: '100%', background: val > 0 ? 'var(--accent-gold)' : 'var(--bg-input)',
+                          height: `${height}%`, borderRadius: '6px 6px 0 0', minHeight: '2px', transition: 'height 0.3s'
+                        }}
+                      />
+                    </div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{dayName}</span>
                   </div>
                 );
@@ -387,23 +392,23 @@ export default function ReportsPage() {
       {!loading && period === 'monthly' && monthlyData && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', border: '1px solid var(--border)', marginBottom: 'var(--space-2)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Showing data for: </span>
-            <span style={{ fontWeight: 600 }}>{new Date(monthlyData.month + '-01').toLocaleDateString('en', { month: 'long', year: 'numeric' })}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{tr('showingDataFor')} </span>
+            <span style={{ fontWeight: 600 }}>{new Date(monthlyData.month + '-01').toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--space-4)' }}>
-            <StatCard icon="coins" label="Monthly Revenue" value={fp(monthlyData.totalRevenue)} color="var(--success)" />
-            <StatCard icon="orders" label="Total Orders" value={String(monthlyData.totalOrders)} />
-            <StatCard icon="banknote" label="Cash" value={fp(monthlyData.cashRevenue)} />
-            <StatCard icon="creditCard" label="Card" value={fp(monthlyData.cardRevenue)} />
-            <StatCard icon="smartphone" label="Mobile" value={fp(monthlyData.mobileRevenue)} />
-            <StatCard icon="calculator" label="Avg Order" value={fp(monthlyData.avgOrderValue)} />
+          <div className="report-kpi-grid">
+            <StatCard icon="coins" label={tr('monthlyRevenue')} value={fp(monthlyData.totalRevenue)} color="var(--success)" />
+            <StatCard icon="orders" label={tr('totalOrders')} value={String(monthlyData.totalOrders)} />
+            <StatCard icon="banknote" label={tr('cash')} value={fp(monthlyData.cashRevenue)} />
+            <StatCard icon="creditCard" label={tr('card')} value={fp(monthlyData.cardRevenue)} />
+            <StatCard icon="smartphone" label={tr('mobile')} value={fp(monthlyData.mobileRevenue)} />
+            <StatCard icon="calculator" label={tr('avgOrder')} value={fp(monthlyData.avgOrderValue)} />
           </div>
 
           {/* Top Items this month */}
           {monthlyData.topItems.length > 0 && (
             <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', border: '1px solid var(--border)' }}>
-              <h3 style={{ marginBottom: 'var(--space-3)', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trophy" size={16} /> Top Items This Month (by Revenue)</h3>
+              <h3 style={{ marginBottom: 'var(--space-3)', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trophy" size={16} /> {tr('topItemsMonth')}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {monthlyData.topItems.map((item: ReportTopItem, idx: number) => {
                   const maxRev = monthlyData.topItems[0]?.revenue || 1;
@@ -426,7 +431,7 @@ export default function ReportsPage() {
       )}
 
       {!loading && period === 'daily' && !dailyData && (
-        <div className="empty-state"><div className="empty-state-icon"><Icon name="reports" size={48} /></div><div className="empty-state-title">No data for this date</div></div>
+        <div className="empty-state"><div className="empty-state-icon"><Icon name="reports" size={48} /></div><div className="empty-state-title">{tr('noData')}</div></div>
       )}
       </div>
       

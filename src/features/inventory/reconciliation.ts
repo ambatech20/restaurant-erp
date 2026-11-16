@@ -40,7 +40,7 @@ export async function getRecipeEditorData() {
       where: { kind: 'PRODUCT' },
       orderBy: [{ categoryId: 'asc' }, { sortOrder: 'asc' }, { nameEn: 'asc' }],
       include: {
-        category: { select: { id: true, nameEn: true, nameAm: true } },
+        category: { select: { id: true, nameEn: true, nameAm: true, nameOm: true } },
         ingredients: {
           select: {
             id: true,
@@ -48,7 +48,7 @@ export async function getRecipeEditorData() {
             quantity: true,
             yieldStockQuantity: true,
             yieldUnits: true,
-            inventoryItem: { select: { nameEn: true, nameAm: true, unit: true } },
+            inventoryItem: { select: { nameEn: true, nameAm: true, nameOm: true, unit: true } },
           },
         },
       },
@@ -56,7 +56,7 @@ export async function getRecipeEditorData() {
     prisma.inventoryItem.findMany({
       where: { isActive: true },
       orderBy: { nameEn: 'asc' },
-      select: { id: true, nameEn: true, nameAm: true, unit: true, currentStock: true },
+      select: { id: true, nameEn: true, nameAm: true, nameOm: true, unit: true, currentStock: true },
     }),
   ]);
 
@@ -64,12 +64,14 @@ export async function getRecipeEditorData() {
     id: item.id,
     nameEn: item.nameEn,
     nameAm: item.nameAm,
+    nameOm: item.nameOm,
     category: item.category,
     ingredients: item.ingredients.map((ing) => ({
       id: ing.id,
       inventoryItemId: ing.inventoryItemId,
       stockNameEn: ing.inventoryItem.nameEn,
       stockNameAm: ing.inventoryItem.nameAm,
+      stockNameOm: ing.inventoryItem.nameOm,
       unit: ing.inventoryItem.unit,
       quantity: ing.quantity,
       yieldStockQuantity: ing.yieldStockQuantity,
@@ -159,7 +161,7 @@ export async function getAssignmentBoard(periodStart: string, periodEnd: string)
     prisma.inventoryItem.findMany({
       where: { isActive: true },
       orderBy: { nameEn: 'asc' },
-      select: { id: true, nameEn: true, nameAm: true, unit: true, currentStock: true, tracked: true },
+      select: { id: true, nameEn: true, nameAm: true, nameOm: true, unit: true, currentStock: true, tracked: true },
     }),
     getAssignmentsForPeriod(period.start, period.end),
   ]);
@@ -171,6 +173,7 @@ export async function getAssignmentBoard(periodStart: string, periodEnd: string)
       id: item.id,
       nameEn: item.nameEn,
       nameAm: item.nameAm,
+      nameOm: item.nameOm,
       unit: item.unit,
       currentStock: item.currentStock,
       tracked: item.tracked,
@@ -244,7 +247,7 @@ export async function getSettlement(periodStart: string, periodEnd: string) {
   const items = ids.size
     ? await prisma.inventoryItem.findMany({
         where: { id: { in: [...ids] } },
-        select: { id: true, nameEn: true, nameAm: true, unit: true },
+        select: { id: true, nameEn: true, nameAm: true, nameOm: true, unit: true },
       })
     : [];
   const itemById = new Map(items.map((i) => [i.id, i]));
@@ -258,6 +261,7 @@ export async function getSettlement(periodStart: string, periodEnd: string) {
         id,
         nameEn: item?.nameEn ?? `Item #${id}`,
         nameAm: item?.nameAm ?? null,
+        nameOm: item?.nameOm ?? null,
         unit: item?.unit ?? '',
         assigned,
         expected,

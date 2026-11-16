@@ -32,6 +32,22 @@ export function isOrderItemStatus(value: unknown): value is OrderItemStatus {
 export function rollUpOrderStatus(items: { status: string }[]): OrderStatus {
   if (items.length === 0) return 'PENDING';
   if (items.every((i) => i.status === 'SERVED')) return 'SERVED';
+  if (items.every((i) => i.status === 'READY' || i.status === 'SERVED')) return 'READY';
   if (items.some((i) => i.status !== 'PENDING')) return 'PREPARING';
   return 'PENDING';
+}
+
+/**
+ * Whether the floor may move a bill from one status to another.
+ *
+ * An open bill that was served can be pulled back into the kitchen when a
+ * second course is added. Going back to the PENDING queue is never useful, so
+ * only forward moves are allowed once cooking has started.
+ */
+export function isLegalStatusTransition(from: OrderStatus, to: OrderStatus): boolean {
+  if (from === to) return true;
+  if (from === 'CANCELLED' || to === 'CANCELLED') return false;
+  if (from === 'PENDING') return true;
+  if (from === 'PREPARING' || from === 'READY') return to !== 'PENDING';
+  return true; // SERVED may reopen into any kitchen state while the bill is open
 }

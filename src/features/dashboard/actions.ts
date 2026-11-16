@@ -98,7 +98,7 @@ export async function getRecentOrders(limit: number = 10) {
       include: {
         items: true,
         payment: true,
-        staff: { select: { name: true, nameAm: true } },
+        staff: { select: { name: true, nameAm: true, nameOm: true } },
       },
     });
 
@@ -115,10 +115,10 @@ export async function getCashierBootstrap() {
     if (!auth.ok) return { success: false, error: auth.error };
 
     const [cats, items, unpaid, ready] = await Promise.all([
-      prisma.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' }, select: { id: true, nameEn: true, nameAm: true, icon: true, color: true } }),
-      prisma.menuItem.findMany({ where: { isAvailable: true }, orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { nameEn: 'asc' }], select: { id: true, nameEn: true, nameAm: true, price: true, isAvailable: true, image: true, categoryId: true, kind: true, variants: { where: { isActive: true }, select: { id: true, nameEn: true, nameAm: true, priceOffset: true } } } }),
-      prisma.order.findMany({ where: { payment: null, status: { not: 'CANCELLED' } }, include: { items: true, staff: { select: { name: true, nameAm: true, role: true } } }, orderBy: { createdAt: 'desc' } }),
-      prisma.order.findMany({ where: { status: 'READY' }, include: { items: true, staff: { select: { name: true, nameAm: true } } }, orderBy: { createdAt: 'asc' } }),
+      prisma.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' }, select: { id: true, nameEn: true, nameAm: true, nameOm: true, icon: true, color: true } }),
+      prisma.menuItem.findMany({ where: { isAvailable: true }, orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { nameEn: 'asc' }], select: { id: true, nameEn: true, nameAm: true, nameOm: true, price: true, isAvailable: true, image: true, categoryId: true, kind: true, variants: { where: { isActive: true }, select: { id: true, nameEn: true, nameAm: true, nameOm: true, priceOffset: true } } } }),
+      prisma.order.findMany({ where: { payment: null, status: { not: 'CANCELLED' } }, include: { items: true, staff: { select: { name: true, nameAm: true, nameOm: true, role: true } } }, orderBy: { createdAt: 'desc' } }),
+      prisma.order.findMany({ where: { status: 'READY' }, include: { items: true, staff: { select: { name: true, nameAm: true, nameOm: true } } }, orderBy: { createdAt: 'asc' } }),
     ]);
 
     return { success: true, categories: cats, items, unpaidOrders: unpaid, readyOrders: ready };
@@ -134,9 +134,9 @@ export async function getWaiterBootstrap() {
     if (!auth.ok) return { success: false, error: auth.error };
 
     const [cats, items, ready] = await Promise.all([
-      prisma.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' }, select: { id: true, nameEn: true, nameAm: true, icon: true, color: true } }),
-      prisma.menuItem.findMany({ where: { isAvailable: true }, orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { nameEn: 'asc' }], select: { id: true, nameEn: true, nameAm: true, price: true, isAvailable: true, image: true, categoryId: true, kind: true, variants: { where: { isActive: true }, select: { id: true, nameEn: true, nameAm: true, priceOffset: true } } } }),
-      prisma.order.findMany({ where: { status: 'READY' }, include: { items: true, staff: { select: { name: true, nameAm: true } } }, orderBy: { createdAt: 'asc' } }),
+      prisma.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' }, select: { id: true, nameEn: true, nameAm: true, nameOm: true, icon: true, color: true } }),
+      prisma.menuItem.findMany({ where: { isAvailable: true }, orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { nameEn: 'asc' }], select: { id: true, nameEn: true, nameAm: true, nameOm: true, price: true, isAvailable: true, image: true, categoryId: true, kind: true, variants: { where: { isActive: true }, select: { id: true, nameEn: true, nameAm: true, nameOm: true, priceOffset: true } } } }),
+      prisma.order.findMany({ where: { status: 'READY' }, include: { items: true, staff: { select: { name: true, nameAm: true, nameOm: true } } }, orderBy: { createdAt: 'asc' } }),
     ]);
 
     return { success: true, categories: cats, items, readyOrders: ready };
@@ -177,7 +177,7 @@ export async function getShiftReports() {
       orderBy: { startTime: 'desc' },
       take: 20,
       include: {
-        staff: { select: { name: true, nameAm: true } },
+        staff: { select: { name: true, nameAm: true, nameOm: true } },
         orders: {
           where: { status: { not: 'CANCELLED' } },
           include: { payment: true },
@@ -196,6 +196,7 @@ export async function getShiftReports() {
         id: shift.id,
         staffName: shift.staff.name,
         staffNameAm: shift.staff.nameAm,
+        staffNameOm: shift.staff.nameOm,
         startTime: shift.startTime.toISOString(),
         endTime: shift.endTime?.toISOString() || null,
         openingCash: shift.openingCash,

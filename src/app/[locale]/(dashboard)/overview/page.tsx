@@ -8,6 +8,7 @@ import Icon, { type IconName } from '@/components/shared/Icon';
 
 export default function OverviewPage() {
   const t = useTranslations('dashboard');
+  const to = useTranslations('orders');
   const tc = useTranslations('common');
   const locale = useLocale();
   const [summary, setSummary] = useState<{ totalSales: number; orderCount: number; averageOrder: number; activeOrders: number } | null>(null);
@@ -82,20 +83,20 @@ export default function OverviewPage() {
       </div>
 
       {/* Recent Orders */}
-      <div className="glass-card-static" style={{ overflow: 'hidden' }}>
+      <div className="glass-card-static">
         <div className="panel-header">
           <h3 className="section-title">{t('recentOrders')}</h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <table className="data-table">
             <thead>
               <tr>
                 <th>#</th>
-                <th>Time</th>
-                <th>Type</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Status</th>
+                <th>{to('time')}</th>
+                <th>{to('type')}</th>
+                <th>{to('items')}</th>
+                <th>{to('total')}</th>
+                <th>{to('status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -106,11 +107,11 @@ export default function OverviewPage() {
                   <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>{order.type === 'DINE_IN' ? (<><Icon name="menu" size={14} /> T{order.tableNumber || '-'}</>) : (<Icon name="inventory" size={14} />)}</span></td>
                   <td>{order.items.length}</td>
                   <td style={{ fontWeight: 600, color: 'var(--accent-gold)' }}>{formatPrice(order.total, locale)}</td>
-                  <td><span className={`badge ${getStatusBadgeClass(order.status)}`}>{order.status}</span></td>
+                  <td><span className={`badge ${getStatusBadgeClass(order.status)}`}>{to(order.status.toLowerCase())}</span></td>
                 </tr>
               ))}
               {recentOrders.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 'var(--space-8)' }}>No orders yet today</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 'var(--space-8)' }}>{to('noOrdersToday')}</td></tr>
               )}
             </tbody>
           </table>
