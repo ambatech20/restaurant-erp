@@ -23,6 +23,7 @@ import {
   type OrderStatus,
 } from '@/lib/orderStatus';
 import { FLOOR_ROLES, MANAGEMENT_ROLES, type Role } from '@/lib/roles';
+import { businessDayStamp, businessDayStart } from '@/lib/time';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -325,9 +326,7 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 function nextOrderNumber(seq: number): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return `${today.toISOString().slice(0, 10).replace(/-/g, '')}-${String(seq).padStart(3, '0')}`;
+  return `${businessDayStamp()}-${String(seq).padStart(3, '0')}`;
 }
 
 export async function createOrderRecord(
@@ -380,9 +379,7 @@ export async function createOrderRecord(
             if (open) throw new OpenBillExistsError();
           }
 
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const seq = await tx.order.count({ where: { createdAt: { gte: today } } });
+          const seq = await tx.order.count({ where: { createdAt: { gte: businessDayStart() } } });
 
           return tx.order.create({
             data: {
