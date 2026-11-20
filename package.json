@@ -9,6 +9,7 @@
     "start": "node server.js --production",
     "lint": "eslint",
     "test": "vitest run",
+    "test:load": "node scripts/loadtest.mjs",
     "db:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "npx prisma studio",
